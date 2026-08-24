@@ -1,0 +1,17 @@
+﻿[package]
+name = "hbx-hardware"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+hbx-core = { workspace = true }
+sysinfo = { workspace = true }
+serde = { workspace = true }
+tracing = { workspace = true }
+
+[features]
+default = []
+win11 = []
+legacy = []

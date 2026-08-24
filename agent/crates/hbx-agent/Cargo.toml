@@ -1,0 +1,21 @@
+﻿[package]
+name = "hbx-agent"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+hbx-core = { workspace = true }
+hbx-engine = { workspace = true }
+hbx-scheduler = { workspace = true }
+hbx-client = { workspace = true }
+hbx-journal = { workspace = true }
+hbx-hardware = { workspace = true }
+sysinfo = { workspace = true }
+tracing = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+thiserror = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }

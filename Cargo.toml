@@ -1,0 +1,109 @@
+[workspace]
+resolver = "2"
+members = [
+    "agent/crates/hbx-core",
+    "agent/crates/hbx-chunker",
+    "agent/crates/hbx-dedup",
+    "agent/crates/hbx-compress",
+    "agent/crates/hbx-crypto",
+    "agent/crates/hbx-crypto-password",
+    "agent/crates/hbx-crypto-keyfile",
+    "agent/crates/hbx-crypto-kms-enterprise",
+    "agent/crates/hbx-crypto-kms-huawei",
+    "agent/crates/hbx-crypto-kms-azure",
+    "agent/crates/hbx-crypto-kms-aws",
+    "agent/crates/hbx-repo",
+    "agent/crates/hbx-engine",
+    "agent/crates/hbx-scanner",
+    "agent/crates/hbx-journal",
+    "agent/crates/hbx-hardware",
+    "agent/crates/hbx-scheduler",
+    "agent/crates/hbx-proto",
+    "agent/crates/hbx-client",
+    "agent/crates/hbx-restore",
+    "agent/crates/hbx-verify",
+    "agent/crates/hbx-retention",
+    "agent/crates/hbx-agent",
+    "agent/xtask",
+    "tests/e2e",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.96.0"
+license = "MIT"
+repository = "https://github.com/hyperbackupx/hbx"
+
+[workspace.dependencies]
+hbx-core = { path = "agent/crates/hbx-core" }
+hbx-chunker = { path = "agent/crates/hbx-chunker" }
+hbx-dedup = { path = "agent/crates/hbx-dedup" }
+hbx-compress = { path = "agent/crates/hbx-compress" }
+hbx-crypto = { path = "agent/crates/hbx-crypto" }
+hbx-crypto-password = { path = "agent/crates/hbx-crypto-password" }
+hbx-crypto-keyfile = { path = "agent/crates/hbx-crypto-keyfile" }
+hbx-crypto-kms-enterprise = { path = "agent/crates/hbx-crypto-kms-enterprise" }
+hbx-crypto-kms-huawei = { path = "agent/crates/hbx-crypto-kms-huawei" }
+hbx-crypto-kms-azure = { path = "agent/crates/hbx-crypto-kms-azure" }
+hbx-crypto-kms-aws = { path = "agent/crates/hbx-crypto-kms-aws" }
+hbx-repo = { path = "agent/crates/hbx-repo" }
+hbx-engine = { path = "agent/crates/hbx-engine" }
+hbx-scanner = { path = "agent/crates/hbx-scanner" }
+hbx-journal = { path = "agent/crates/hbx-journal" }
+hbx-hardware = { path = "agent/crates/hbx-hardware" }
+hbx-scheduler = { path = "agent/crates/hbx-scheduler" }
+hbx-proto = { path = "agent/crates/hbx-proto" }
+hbx-client = { path = "agent/crates/hbx-client" }
+hbx-restore = { path = "agent/crates/hbx-restore" }
+hbx-verify = { path = "agent/crates/hbx-verify" }
+hbx-retention = { path = "agent/crates/hbx-retention" }
+hbx-agent = { path = "agent/crates/hbx-agent" }
+
+tokio = { version = "1.42", features = ["full"] }
+tokio-stream = "0.1"
+tokio-util = { version = "0.7", features = ["io"] }
+async-trait = "0.1"
+futures = "0.3"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+toml = "0.8"
+thiserror = "2.0"
+anyhow = "1.0"
+tracing = "0.1"
+tracing-subscriber = "0.3"
+bytes = "1.9"
+uuid = { version = "1.11", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+blake3 = "1.5"
+sha2 = "0.10"
+zstd = "0.13"
+proptest = "1.6"
+tempfile = "3.14"
+parking_lot = "0.12"
+crc32fast = "1.4"
+sysinfo = "0.32"
+walkdir = "2.5"
+glob = "0.3"
+regex = "1.11"
+hex = "0.4"
+zeroize = "1.8"
+aes-gcm = "0.10"
+argon2 = "0.5"
+rand = "0.8"
+ureq = { version = "2.12", features = ["tls"] }
+hmac = "0.12"
+base64 = "0.22"
+url = "2.5"
+
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+strip = true
+panic = "abort"
+
+[profile.dev]
+opt-level = 0
+debug = true

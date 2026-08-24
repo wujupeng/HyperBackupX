@@ -1,0 +1,24 @@
+﻿[package]
+name = "hbx-crypto"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+hbx-core = { workspace = true }
+hbx-crypto-password = { workspace = true }
+hbx-crypto-keyfile = { workspace = true }
+hbx-crypto-kms-enterprise = { workspace = true }
+hbx-crypto-kms-huawei = { workspace = true }
+hbx-crypto-kms-azure = { workspace = true }
+hbx-crypto-kms-aws = { workspace = true }
+aes-gcm = { workspace = true }
+argon2 = { workspace = true }
+rand = { workspace = true }
+zeroize = { workspace = true }
+uuid = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+proptest = { workspace = true }

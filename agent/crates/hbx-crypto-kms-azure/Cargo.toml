@@ -1,0 +1,10 @@
+﻿[package]
+name = "hbx-crypto-kms-azure"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+hbx-core = { workspace = true }
+zeroize = { workspace = true }

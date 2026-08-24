@@ -1,0 +1,28 @@
+﻿[package]
+name = "hbx-restore"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+hbx-core = { workspace = true }
+hbx-repo = { workspace = true }
+hbx-compress = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
+tracing = { workspace = true }
+chrono = { workspace = true }
+uuid = { workspace = true }
+thiserror = { workspace = true }
+parking_lot = { workspace = true }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+hbx-scanner = { workspace = true }
+hbx-chunker = { workspace = true }
+hbx-dedup = { workspace = true }
+hbx-engine = { workspace = true }

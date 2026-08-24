@@ -1,0 +1,47 @@
+version: "3.9"
+
+services:
+  postgres:
+    build:
+      context: .
+      dockerfile: postgres.Dockerfile
+    environment:
+      POSTGRES_USER: hbx
+      POSTGRES_PASSWORD: hbx_dev_pwd
+      POSTGRES_DB: hbx_control
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hbx -d hbx_control"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  control:
+    build:
+      context: ../../control
+      dockerfile: ../deploy/docker/control.Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      HBX_CONTROL_ADDR: ":8080"
+      HBX_DB_DSN: "postgres://hbx:hbx_dev_pwd@postgres:5432/hbx_control?sslmode=disable"
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ../../web
+      dockerfile: ../deploy/docker/web.Dockerfile
+    depends_on:
+      - control
+    ports:
+      - "80:80"
+    restart: unless-stopped
+
+volumes:
+  pgdata:

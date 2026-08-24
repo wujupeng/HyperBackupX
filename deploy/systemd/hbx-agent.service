@@ -1,0 +1,15 @@
+[Unit]
+Description=HyperBackup X Agent
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/hbx-agent
+Environment=HBX_CONTROL_URL=http://localhost:8080
+Environment=HBX_AGENT_DATA_DIR=/var/lib/hbx-agent
+Restart=always
+RestartSec=5
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

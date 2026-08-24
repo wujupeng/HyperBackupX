@@ -1,0 +1,241 @@
+syntax = "proto3";
+
+package hbx.v1;
+
+option go_package = "hbx-control/internal/hbx/pb";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/duration.proto";
+
+// HBX Protocol v1 - Agent <-> Control Plane 通信协议
+
+service AgentControl {
+  // 设备注册
+  rpc RegisterDevice(RegisterDeviceRequest) returns (RegisterDeviceResponse);
+
+  // 心跳保活
+  rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
+
+  // 状态上报流（客户端流式）
+  rpc ReportStatusStream(stream StatusReport) returns (StatusAck);
+
+  // 命令下发流（服务端流式）
+  rpc CommandStream(CommandRequest) returns (stream Command);
+
+  // 任务结果上报
+  rpc ReportTaskResult(TaskResult) returns (TaskResultAck);
+
+  // 策略拉取
+  rpc FetchPolicy(FetchPolicyRequest) returns (FetchPolicyResponse);
+
+  // 日志上报流
+  rpc ReportLog(stream LogEntry) returns (LogAck);
+}
+
+// ---- 设备注册 ----
+
+message RegisterDeviceRequest {
+  string hostname = 1;
+  string os_version = 2;
+  string agent_version = 3;
+  HardwareTier tier = 4;
+  repeated string supported_protocols = 5;
+  string device_fingerprint = 6;
+}
+
+message RegisterDeviceResponse {
+  string agent_id = 1;
+  string assigned_group = 2;
+  string mtls_cert_pem = 3;
+  string mtls_ca_pem = 4;
+  uint32 heartbeat_interval_secs = 5;
+}
+
+// ---- 心跳 ----
+
+message HeartbeatRequest {
+  string agent_id = 1;
+  google.protobuf.Timestamp timestamp = 2;
+  AgentStatus status = 3;
+  ResourceInfo resources = 4;
+  string protocol_version = 5;
+}
+
+message HeartbeatResponse {
+  google.protobuf.Timestamp server_time = 1;
+  repeated string pending_commands = 2;
+  bool config_updated = 3;
+}
+
+enum AgentStatus {
+  AGENT_STATUS_UNSPECIFIED = 0;
+  AGENT_STATUS_IDLE = 1;
+  AGENT_STATUS_BACKING_UP = 2;
+  AGENT_STATUS_RESTORING = 3;
+  AGENT_STATUS_PAUSED = 4;
+  AGENT_STATUS_ERROR = 5;
+  AGENT_STATUS_UPGRADING = 6;
+}
+
+message ResourceInfo {
+  uint64 total_memory_bytes = 1;
+  uint64 available_memory_bytes = 2;
+  uint32 cpu_cores = 3;
+  uint64 disk_free_bytes = 4;
+  double cpu_usage_percent = 5;
+  double disk_io_mbps = 6;
+  double net_io_mbps = 7;
+}
+
+enum HardwareTier {
+  HARDWARE_TIER_UNSPECIFIED = 0;
+  HARDWARE_TIER_LEGACY = 1;
+  HARDWARE_TIER_STANDARD = 2;
+  HARDWARE_TIER_MODERN = 3;
+}
+
+// ---- 状态上报 ----
+
+message StatusReport {
+  string agent_id = 1;
+  google.protobuf.Timestamp timestamp = 2;
+  oneof status_payload {
+    JobProgress job_progress = 3;
+    AgentHealth health = 4;
+    StorageInfo storage = 5;
+  }
+}
+
+message JobProgress {
+  string job_id = 1;
+  JobPhase phase = 2;
+  uint64 bytes_processed = 3;
+  uint64 bytes_total = 4;
+  uint32 files_processed = 5;
+  uint32 files_total = 6;
+  string current_file = 7;
+  double throughput_mbps = 8;
+}
+
+enum JobPhase {
+  JOB_PHASE_UNSPECIFIED = 0;
+  JOB_PHASE_STARTED = 1;
+  JOB_PHASE_SCANNING = 2;
+  JOB_PHASE_CHUNKING = 3;
+  JOB_PHASE_ENCRYPTING = 4;
+  JOB_PHASE_UPLOADING = 5;
+  JOB_PHASE_COMMITTING = 6;
+  JOB_PHASE_VERIFYING = 7;
+  JOB_PHASE_COMPLETED = 8;
+  JOB_PHASE_FAILED = 9;
+  JOB_PHASE_PAUSED = 10;
+}
+
+message AgentHealth {
+  AgentStatus status = 1;
+  string error_message = 2;
+  uint32 consecutive_failures = 3;
+  google.protobuf.Timestamp last_success_at = 4;
+}
+
+message StorageInfo {
+  string repository_id = 1;
+  uint64 total_bytes = 2;
+  uint64 used_bytes = 3;
+  uint32 version_count = 4;
+  uint64 last_backup_size = 5;
+}
+
+message StatusAck {
+  bool accepted = 1;
+}
+
+// ---- 命令下发 ----
+
+message CommandRequest {
+  string agent_id = 1;
+  string last_command_id = 2;
+}
+
+message Command {
+  string command_id = 1;
+  google.protobuf.Timestamp issued_at = 2;
+  CommandType type = 3;
+  bytes payload = 4;
+  uint32 timeout_secs = 5;
+}
+
+enum CommandType {
+  COMMAND_TYPE_UNSPECIFIED = 0;
+  COMMAND_TYPE_TRIGGER_BACKUP = 1;
+  COMMAND_TYPE_TRIGGER_RESTORE = 2;
+  COMMAND_TYPE_PAUSE_JOB = 3;
+  COMMAND_TYPE_RESUME_JOB = 4;
+  COMMAND_TYPE_CANCEL_JOB = 5;
+  COMMAND_TYPE_POLICY_UPDATE = 6;
+  COMMAND_TYPE_CONFIG_UPDATE = 7;
+  COMMAND_TYPE_UPGRADE_AGENT = 8;
+  COMMAND_TYPE_VERIFY_VERSION = 9;
+  COMMAND_TYPE_CLEANUP_ORPHANS = 10;
+}
+
+// ---- 任务结果 ----
+
+message TaskResult {
+  string task_id = 1;
+  string agent_id = 2;
+  string job_id = 3;
+  TaskStatus status = 4;
+  google.protobuf.Timestamp started_at = 5;
+  google.protobuf.Timestamp completed_at = 6;
+  uint64 bytes_processed = 7;
+  uint64 bytes_stored = 8;
+  uint32 file_count = 9;
+  uint32 chunk_count = 10;
+  double dedup_ratio = 11;
+  string version_id = 12;
+  string error_message = 13;
+  string trace_id = 14;
+}
+
+enum TaskStatus {
+  TASK_STATUS_UNSPECIFIED = 0;
+  TASK_STATUS_SUCCESS = 1;
+  TASK_STATUS_PARTIAL_FAILED = 2;
+  TASK_STATUS_FAILED = 3;
+  TASK_STATUS_CANCELLED = 4;
+}
+
+message TaskResultAck {
+  bool accepted = 1;
+  string message = 2;
+}
+
+// ---- 策略 ----
+
+message FetchPolicyRequest {
+  string agent_id = 1;
+  string current_policy_version = 2;
+}
+
+message FetchPolicyResponse {
+  string policy_id = 1;
+  string policy_version = 2;
+  bytes policy_payload = 3;
+  bool unchanged = 4;
+}
+
+// ---- 日志 ----
+
+message LogEntry {
+  string agent_id = 1;
+  google.protobuf.Timestamp timestamp = 2;
+  string level = 3;
+  string message = 4;
+  string trace_id = 5;
+  map<string, string> fields = 6;
+}
+
+message LogAck {
+  bool accepted = 1;
+}

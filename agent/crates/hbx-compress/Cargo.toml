@@ -1,0 +1,13 @@
+﻿[package]
+name = "hbx-compress"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+hbx-core = { workspace = true }
+zstd = { workspace = true }
+
+[dev-dependencies]
+proptest = { workspace = true }

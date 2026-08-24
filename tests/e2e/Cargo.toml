@@ -1,0 +1,34 @@
+[package]
+name = "hbx-e2e-tests"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+hbx-core = { workspace = true }
+hbx-scanner = { workspace = true }
+hbx-chunker = { workspace = true }
+hbx-dedup = { workspace = true }
+hbx-compress = { workspace = true }
+hbx-crypto = { workspace = true }
+hbx-repo = { workspace = true }
+hbx-engine = { workspace = true }
+hbx-verify = { workspace = true }
+hbx-restore = { workspace = true }
+hbx-scheduler = { workspace = true }
+hbx-retention = { workspace = true }
+hbx-journal = { workspace = true }
+hbx-agent = { workspace = true }
+hbx-client = { workspace = true }
+hbx-hardware = { workspace = true }
+hbx-proto = { workspace = true }
+tokio = { workspace = true }
+sha2 = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+tempfile = { workspace = true }
+serde_json = { workspace = true }
+proptest = { workspace = true }

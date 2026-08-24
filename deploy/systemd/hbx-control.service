@@ -1,0 +1,14 @@
+[Unit]
+Description=HyperBackup X Control Plane
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/hbx-control
+Environment=HBX_CONTROL_ADDR=:8080
+Environment=HBX_DB_DSN=postgres://hbx:hbx_dev_pwd@localhost:5432/hbx_control?sslmode=disable
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

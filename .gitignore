@@ -1,0 +1,53 @@
+# Rust
+target/
+**/*.rs.bk
+
+# Go
+control/hbx-control
+control/init-admin
+control/bin/
+
+# Node.js / Web
+node_modules/
+dist/
+.vite/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+
+# Environment
+.env
+.env.local
+*.pem
+*.key
+
+# Build artifacts
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test artifacts
+test-results/
+coverage/
+*.profraw
+*.profdata
+
+# Spec artifacts
+.codeartsdoer/

@@ -1,0 +1,104 @@
+<?xml version='1.0' encoding='utf-8'?>
+<!--
+  HyperBackup X Agent - Modern (Win11 x86_64-pc-windows-msvc) Installer
+  Target: Windows 11 x86_64
+  CRT: Dynamic linking (UCRT)
+  Features: VSS snapshot support, GetFileInformationByHandleEx
+-->
+<Wix xmlns='http://schemas.microsoft.com/wix/2006/wi'>
+  <Product Id='*' Name='HyperBackup X Agent (Modern)' Language='1033' Version='0.1.0'
+           Manufacturer='HyperBackupX' UpgradeCode='c3d4e5f6-a7b8-9012-cdef-123456789012'>
+    <Package InstallerVersion='500' Compressed='yes' InstallScope='perMachine'
+             Description='HyperBackup X Agent for Windows 11 (Modern with VSS)'/>
+    <Media Id='1' Cabinet='agent_modern.cab' EmbedCab='yes'/>
+    <Property Id='WIXUI_INSTALLDIR' Value='INSTALLDIR'/>
+
+    <Directory Id='TARGETDIR' Name='SourceDir'>
+      <Directory Id='ProgramFiles64Folder' Name='PFiles64'>
+        <Directory Id='INSTALLDIR' Name='HyperBackupX'>
+          <Component Id='AgentExe' Guid='*' Win64='yes'>
+            <File Id='AgentExeFile' Name='hbx-agent.exe' Source='$(var.BuildDir)\hbx-agent.exe' KeyPath='yes'/>
+          </Component>
+          <Component Id='XtaskExe' Guid='*' Win64='yes'>
+            <File Id='XtaskExeFile' Name='xtask.exe' Source='$(var.BuildDir)\xtask.exe' KeyPath='yes'/>
+          </Component>
+          <Component Id='TrayExe' Guid='*' Win64='yes'>
+            <File Id='TrayExeFile' Name='hbx-tray.exe' Source='$(var.BuildDir)\hbx-tray.exe' KeyPath='yes'/>
+          </Component>
+          <Component Id='ReadmeFile' Guid='*' Win64='yes'>
+            <File Id='Readme' Name='README.txt' Source='$(var.BuildDir)\README.txt' KeyPath='yes'/>
+          </Component>
+          <Directory Id='CertDir' Name='certs'>
+            <Component Id='CertDirComp' Guid='*' Win64='yes'>
+              <CreateFolder Directory='CertDir'/>
+            </Component>
+          </Directory>
+        </Directory>
+      </Directory>
+      <Directory Id='ProgramMenuFolder' Name='Programs'>
+        <Directory Id='ProgramMenuDir' Name='HyperBackup X'>
+          <Component Id='ShortcutComp' Guid='*'>
+            <Shortcut Id='AgentShortcut' Name='HBX Agent' Target='[INSTALLDIR]hbx-agent.exe'
+                      WorkingDirectory='INSTALLDIR' Icon='agent.ico'/>
+            <Shortcut Id='TrayShortcut' Name='HBX Tray' Target='[INSTALLDIR]hbx-tray.exe'
+                      WorkingDirectory='INSTALLDIR' Icon='tray.ico'/>
+            <RemoveFolder Id='ProgramMenuDir' On='uninstall'/>
+            <RegistryValue Root='HKCU' Key='Software\HyperBackupX' Name='installed' Type='integer' Value='1' KeyPath='yes'/>
+          </Component>
+        </Directory>
+      </Directory>
+      <Directory Id='AppDataFolder' Name='AppData'>
+        <Directory Id='HBXAppData' Name='HyperBackupX'>
+          <Component Id='AppDataComp' Guid='*'>
+            <CreateFolder Directory='HBXAppData'/>
+          </Component>
+        </Directory>
+      </Directory>
+    </Directory>
+
+    <DirectoryRef Id='TARGETDIR'>
+      <Component Id='RegistryComp' Guid='*' Win64='yes'>
+        <RegistryKey Root='HKLM' Key='Software\HyperBackupX\Agent'>
+          <RegistryValue Name='InstallDir' Type='string' Value='[INSTALLDIR]'/>
+          <RegistryValue Name='Version' Type='string' Value='0.1.0'/>
+          <RegistryValue Name='Tier' Type='string' Value='modern'/>
+          <RegistryValue Name='VSS' Type='integer' Value='1'/>
+        </RegistryKey>
+      </Component>
+    </DirectoryRef>
+
+    <Feature Id='Complete' Title='HyperBackup X Agent (Modern)' Level='1'>
+      <ComponentRef Id='AgentExe'/>
+      <ComponentRef Id='XtaskExe'/>
+      <ComponentRef Id='TrayExe'/>
+      <ComponentRef Id='ReadmeFile'/>
+      <ComponentRef Id='CertDirComp'/>
+      <ComponentRef Id='ShortcutComp'/>
+      <ComponentRef Id='RegistryComp'/>
+      <ComponentRef Id='AppDataComp'/>
+    </Feature>
+
+    <Icon Id='agent.ico' SourceFile='$(var.BuildDir)\agent.ico'/>
+    <Icon Id='tray.ico' SourceFile='$(var.BuildDir)\tray.ico'/>
+    <Property Id='ARPPRODUCTICON' Value='agent.ico'/>
+
+    <UI>
+      <UIRef Id='WixUI_InstallDir'/>
+    </UI>
+
+    <CustomAction Id='StartAgent' Directory='INSTALLDIR'
+                  ExeCommand='[INSTALLDIR]hbx-agent.exe --install-service'
+                  Return='ignore'/>
+    <CustomAction Id='StartTray' Directory='INSTALLDIR'
+                  ExeCommand='[INSTALLDIR]hbx-tray.exe'
+                  Return='ignore'/>
+    <InstallExecuteSequence>
+      <Custom Action='StartAgent' After='InstallFinalize'>NOT Installed</Custom>
+      <Custom Action='StartTray' After='StartAgent'>NOT Installed</Custom>
+    </InstallExecuteSequence>
+
+    <Condition Message='This installer requires Windows 11 or later.'>
+      <![CDATA[VersionNT64 AND (WindowsBuild >= 22000)]]>
+    </Condition>
+  </Product>
+</Wix>
