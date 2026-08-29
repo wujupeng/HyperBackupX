@@ -72,6 +72,130 @@ impl<'a> RestorePointResolver<'a> {
             })
             .collect())
     }
+
+    pub fn verify_chain_integrity(
+        &self,
+        version_id: &VersionId,
+    ) -> Result<ChainIntegrityReport, RepoError> {
+        let mut chain = Vec::new();
+        let mut current = version_id.clone();
+        let mut corrupted_count = 0u32;
+
+        loop {
+            match self.repo.read_manifest(&current) {
+                Ok(manifest) => {
+                    let version_number = manifest.version_number;
+                    let backup_type = manifest.backup_type;
+                    chain.push(ChainEntry {
+                        version_id: current.clone(),
+                        version_number,
+                        backup_type,
+                        is_valid: true,
+                    });
+
+                    match &manifest.parent_version_id {
+                        Some(parent) => {
+                            current = parent.clone();
+                        }
+                        None => break,
+                    }
+                }
+                Err(_) => {
+                    corrupted_count += 1;
+                    chain.push(ChainEntry {
+                        version_id: current.clone(),
+                        version_number: 0,
+                        backup_type: hbx_core::domain::backup::BackupType::Incremental,
+                        is_valid: false,
+                    });
+                    break;
+                }
+            }
+        }
+
+        let is_intact = corrupted_count == 0;
+
+        Ok(ChainIntegrityReport {
+            chain,
+            is_intact,
+            corrupted_count,
+        })
+    }
+
+    pub fn resolve_nearest_valid_baseline(
+        &self,
+        corrupted_version_id: &VersionId,
+    ) -> Result<Option<RestorePoint>, RepoError> {
+        let versions = self.repo.list_versions()?;
+
+        let corrupted_time = versions
+            .iter()
+            .find(|v| v.version_id == corrupted_version_id.0)
+            .map(|v| v.timestamp);
+
+        let cutoff = match corrupted_time {
+            Some(t) => t,
+            None => return Ok(None),
+        };
+
+        for v in &versions {
+            if v.timestamp >= cutoff {
+                continue;
+            }
+            if self.repo.read_manifest(&VersionId(v.version_id)).is_ok() {
+                return Ok(Some(RestorePoint {
+                    version_id: VersionId(v.version_id),
+                    timestamp: v.timestamp,
+                    version_number: v.version_number,
+                }));
+            }
+        }
+
+        Ok(None)
+    }
+
+    pub fn rebuild_chain_from_baseline(
+        &self,
+        baseline_version_id: &VersionId,
+    ) -> Result<Vec<RestorePoint>, RepoError> {
+        let versions = self.repo.list_versions()?;
+        let baseline_time = versions
+            .iter()
+            .find(|v| v.version_id == baseline_version_id.0)
+            .map(|v| v.timestamp)
+            .ok_or_else(|| RepoError::Failed("baseline version not found".into()))?;
+
+        let mut chain = Vec::new();
+        for v in &versions {
+            if v.timestamp < baseline_time {
+                continue;
+            }
+            if self.repo.read_manifest(&VersionId(v.version_id)).is_ok() {
+                chain.push(RestorePoint {
+                    version_id: VersionId(v.version_id),
+                    timestamp: v.timestamp,
+                    version_number: v.version_number,
+                });
+            }
+        }
+
+        Ok(chain)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ChainEntry {
+    pub version_id: VersionId,
+    pub version_number: u64,
+    pub backup_type: hbx_core::domain::backup::BackupType,
+    pub is_valid: bool,
+}
+
+#[derive(Debug, Clone)]
+pub struct ChainIntegrityReport {
+    pub chain: Vec<ChainEntry>,
+    pub is_intact: bool,
+    pub corrupted_count: u32,
 }
 
 pub fn filter_versions_before(

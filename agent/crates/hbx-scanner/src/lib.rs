@@ -1,4 +1,8 @@
-﻿use futures::stream::Stream;
+﻿﻿pub mod diff;
+
+pub use diff::{FileTreeDiff, RenamedFile};
+
+use futures::stream::Stream;
 use hbx_core::domain::backup::{BackupSnapshot, BackupSource};
 use hbx_core::domain::common::{FileAttributes, FilterRule, ScanEstimate};
 use hbx_core::domain::repository::FileEntry;
@@ -22,6 +26,90 @@ impl LocalScanner {
             scan_threads: scan_threads.max(1),
         }
     }
+
+    pub fn scan_with_diff(
+        &self,
+        source: &BackupSource,
+        filter: &FilterRule,
+        baseline: Option<&BackupSnapshot>,
+    ) -> Result<
+        (
+            Box<dyn Stream<Item = FileEntry> + Send + Unpin>,
+            Option<FileTreeDiff>,
+        ),
+        ScanError,
+    > {
+        let mut all_files: Vec<FileEntry> = Vec::new();
+
+        for base_path in &source.paths {
+            if !base_path.exists() {
+                tracing::warn!("source path does not exist: {:?}", base_path);
+                continue;
+            }
+
+            for entry in WalkDir::new(base_path)
+                .follow_links(false)
+                .into_iter()
+                .filter_map(|e| e.ok())
+            {
+                if !entry.file_type().is_file() {
+                    continue;
+                }
+
+                let path = entry.path();
+                let path_str = path.to_string_lossy().to_string();
+
+                if !passes_filters(&path_str, &source.include_rules, &source.exclude_rules, filter) {
+                    continue;
+                }
+
+                let metadata = match entry.metadata() {
+                    Ok(m) => m,
+                    Err(e) => {
+                        tracing::warn!("metadata error for {:?}: {}", path, e);
+                        continue;
+                    }
+                };
+
+                let modified_at = metadata.modified().map(|t| {
+                    let duration = t
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap_or_default();
+                    chrono::DateTime::from_timestamp(duration.as_secs() as i64, 0)
+                        .unwrap_or_default()
+                }).unwrap_or_default();
+
+                all_files.push(FileEntry {
+                    path: path_str,
+                    size: metadata.len(),
+                    modified_at,
+                    attributes: FileAttributes::default(),
+                    chunks: Vec::new(),
+                    file_hash: [0u8; 32],
+                });
+            }
+        }
+
+        let (diff_result, files_to_send) = if let Some(ref baseline) = baseline {
+            let diff = FileTreeDiff::compute(all_files.into_iter(), baseline);
+            let files: Vec<FileEntry> = diff.added.iter().chain(diff.modified.iter()).cloned().collect();
+            (Some(diff), files)
+        } else {
+            (None, all_files)
+        };
+
+        let (tx, rx) = mpsc::channel::<FileEntry>(64);
+
+        tokio::spawn(async move {
+            for file_entry in files_to_send {
+                if tx.send(file_entry).await.is_err() {
+                    return;
+                }
+            }
+        });
+
+        Ok((Box::new(ReceiverStream::new(rx)), diff_result))
+    }
 }
 
 impl Default for LocalScanner {
@@ -37,76 +125,8 @@ impl IScanner for LocalScanner {
         filter: &FilterRule,
         baseline: Option<&BackupSnapshot>,
     ) -> Result<Box<dyn Stream<Item = FileEntry> + Send + Unpin>, ScanError> {
-        let (tx, rx) = mpsc::channel::<FileEntry>(64);
-
-        let paths: Vec<std::path::PathBuf> = source.paths.clone();
-        let include_rules = source.include_rules.clone();
-        let exclude_rules = source.exclude_rules.clone();
-        let filter = filter.clone();
-        let baseline_owned = baseline.cloned();
-
-        tokio::spawn(async move {
-            for base_path in &paths {
-                if !base_path.exists() {
-                    tracing::warn!("source path does not exist: {:?}", base_path);
-                    continue;
-                }
-
-                for entry in WalkDir::new(base_path)
-                    .follow_links(false)
-                    .into_iter()
-                    .filter_map(|e| e.ok())
-                {
-                    if !entry.file_type().is_file() {
-                        continue;
-                    }
-
-                    let path = entry.path();
-                    let path_str = path.to_string_lossy().to_string();
-
-                    if !passes_filters(&path_str, &include_rules, &exclude_rules, &filter) {
-                        continue;
-                    }
-
-                    let metadata = match entry.metadata() {
-                        Ok(m) => m,
-                        Err(e) => {
-                            tracing::warn!("metadata error for {:?}: {}", path, e);
-                            continue;
-                        }
-                    };
-
-                    let modified_at = metadata.modified().map(|t| {
-                        let duration = t
-                            .duration_since(std::time::UNIX_EPOCH)
-                            .unwrap_or_default();
-                        chrono::DateTime::from_timestamp(duration.as_secs() as i64, 0)
-                            .unwrap_or_default()
-                    }).unwrap_or_default();
-
-                    let file_entry = FileEntry {
-                        path: path_str,
-                        size: metadata.len(),
-                        modified_at,
-                        attributes: FileAttributes::default(),
-                        chunks: Vec::new(),
-                        file_hash: [0u8; 32],
-                    };
-
-                    if let Some(ref baseline) = &baseline_owned {
-                        if is_unchanged(&file_entry, baseline) {
-                            continue;
-                        }
-                    }
-
-                    if tx.send(file_entry).await.is_err() {
-                        return;
-                    }
-                }
-            }
-        });
-
-        Ok(Box::new(ReceiverStream::new(rx)))
+        let (stream, _diff) = self.scan_with_diff(source, filter, baseline)?;
+        Ok(stream)
     }
 
     fn estimate(&self, source: &BackupSource, filter: &FilterRule) -> ScanEstimate {
@@ -207,12 +227,6 @@ fn glob_match_helper(pat: &[char], pi: usize, txt: &[char], ti: usize) -> bool {
     false
 }
 
-fn is_unchanged(entry: &FileEntry, baseline: &BackupSnapshot) -> bool {
-    baseline
-        .files
-        .iter()
-        .any(|(path, size, _hash)| path == &entry.path && size == &entry.size)
-}
 
 #[cfg(test)]
 mod tests {

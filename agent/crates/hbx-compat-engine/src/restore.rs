@@ -98,6 +98,11 @@ fn filter_files(
             .filter(|f| f.path.contains(term.as_str()))
             .cloned()
             .collect(),
+        FileSelection::PathPrefix(prefix) => files
+            .iter()
+            .filter(|f| f.path.starts_with(prefix.as_str()))
+            .cloned()
+            .collect(),
         FileSelection::DateRange { .. } => files.to_vec(),
     }
 }

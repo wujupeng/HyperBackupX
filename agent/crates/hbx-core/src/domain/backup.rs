@@ -8,6 +8,7 @@ use super::common::{
     CompressionProfile, EncryptionProfileRef, FilterRule, ExecutionId, JobId, HashDigest,
     RepositoryId, RetentionPolicyRef, ScheduleRef, VersionId,
 };
+use super::chunking::ChunkingProfile;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum BackupType {
@@ -39,6 +40,8 @@ pub struct BackupJob {
     pub retention_policy: RetentionPolicyRef,
     pub encryption_profile: EncryptionProfileRef,
     pub compression_profile: CompressionProfile,
+    #[serde(default)]
+    pub chunking_profile: ChunkingProfile,
     pub status: JobStatus,
     pub created_at: DateTime<Utc>,
 }
@@ -119,8 +122,16 @@ pub struct BackupError {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FileSnapshotEntry {
+    pub path: String,
+    pub size: u64,
+    pub mtime: DateTime<Utc>,
+    pub file_hash: HashDigest,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BackupSnapshot {
     pub version_id: VersionId,
     pub timestamp: DateTime<Utc>,
-    pub files: Vec<(String, u64, HashDigest)>,
+    pub files: Vec<FileSnapshotEntry>,
 }

@@ -1,6 +1,7 @@
 pub mod common;
 pub mod backup;
 pub mod chunk;
+pub mod chunking;
 pub mod encryption;
 pub mod repository;
 pub mod restore;

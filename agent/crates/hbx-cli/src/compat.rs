@@ -77,29 +77,42 @@ fn restore(args: &Args, client: &ApiClient) -> Result<()> {
     let version_id = args
         .positional
         .get(1)
-        .ok_or_else(|| anyhow::anyhow!("missing <version-id> argument\nusage: hbx-cli compat restore <version-id> --target <path> [--selection <rule>] [--mode <mode>]"))?;
+        .ok_or_else(|| anyhow::anyhow!("missing <version-id> argument\nusage: hbx-cli compat restore <version-id> --target <dir> [--source <path-prefix>] [--overwrite <skip|overwrite|rename>]"))?;
 
     let target = args
         .get("target")
-        .ok_or_else(|| anyhow::anyhow!("missing --target <path> option"))?;
+        .ok_or_else(|| anyhow::anyhow!("missing --target <dir> option"))?;
+
+    let source = args.get("source");
+    let overwrite = args.get_or("overwrite", "skip");
 
     let selection = args.get_or("selection", "all");
-    let mode = args.get_or("mode", "original");
+    let mode = args.get_or("mode", overwrite);
 
     println!(
-        "Restoring version {} to {} (selection: {}, mode: {})",
-        version_id, target, selection, mode
+        "Restoring version {} to {} (source: {}, overwrite: {})",
+        version_id,
+        target,
+        source.unwrap_or("(all)"),
+        overwrite
     );
 
-    let body = serde_json::json!({
+    let mut body = serde_json::json!({
         "source_version_id": version_id,
+        "target_path": target,
         "target_location": target,
+        "overwrite_policy": overwrite,
         "file_selection": selection,
         "restore_mode": mode,
-    })
-    .to_string();
+    });
 
-    let resp = client.post("/api/v1/restores", &body);
+    if let Some(ref src) = source {
+        body["source_path_prefix"] = serde_json::Value::String(src.to_string());
+    }
+
+    let body_str = body.to_string();
+
+    let resp = client.post("/api/v1/restores", &body_str);
     match resp {
         Ok(text) => {
             println!("Restore initiated: {}", text);

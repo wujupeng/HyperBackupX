@@ -2,6 +2,7 @@
 mod crypto;
 mod engine;
 mod concurrent;
+mod chunk_diff;
 
 pub use memory::{MemoryBudget, MemoryGuard};
 pub use crypto::NoOpEncryptionProvider;
@@ -9,3 +10,4 @@ pub use engine::{BackupEngine, BackupEngineBuilder, EngineError, ExecutionTracke
 pub use concurrent::{
     BackupLockGuard, RollbackResult, StagingTracker, is_retryable_repo_error, is_storage_full,
 };
+pub use chunk_diff::ChunkDiff;

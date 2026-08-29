@@ -123,6 +123,7 @@ fn cmd_backup(args: &[String]) -> Result<(), String> {
             algorithm: CompressionAlgorithm::Zstd,
             level: 3,
         },
+        chunking_profile: hbx_core::domain::chunking::ChunkingProfile::Standard,
         status: JobStatus::Active,
         created_at: chrono::Utc::now(),
     };

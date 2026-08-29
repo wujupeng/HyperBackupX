@@ -259,6 +259,13 @@ fn plan_files<'a>(manifest: &'a Manifest, selection: &FileSelection) -> Vec<&'a 
                 .filter(|f| f.path.contains(query.as_str()))
                 .collect()
         }
+        FileSelection::PathPrefix(prefix) => {
+            manifest
+                .files
+                .iter()
+                .filter(|f| f.path.starts_with(prefix.as_str()))
+                .collect()
+        }
         FileSelection::DateRange { from, to } => {
             manifest
                 .files
@@ -365,6 +372,7 @@ mod tests {
                 algorithm: CompressionAlgorithm::Zstd,
                 level: 3,
             },
+            chunking_profile: hbx_core::domain::chunking::ChunkingProfile::Standard,
             status: JobStatus::Active,
             created_at: chrono::Utc::now(),
         }

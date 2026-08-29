@@ -120,7 +120,7 @@ pub enum VerifyError {
     Compress(#[from] CompressError),
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ChunkStrategy {
     Fixed { chunk_size: u64 },
     Cdc { min_size: u64, avg_size: u64, max_size: u64 },

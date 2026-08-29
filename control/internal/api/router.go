@@ -728,14 +728,41 @@ func (s *Server) createRestore(c *gin.Context) {
 	}
 	verIDStr, _ := req["source_version_id"].(string)
 	verID, _ := uuid.Parse(verIDStr)
-	mode, _ := req["restore_mode"].(string)
-	target, _ := req["target_location"].(string)
+
+	targetPath, _ := req["target_path"].(string)
+	if targetPath == "" {
+		targetPath, _ = req["target_location"].(string)
+	}
+	if targetPath == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "target_path is required"})
+		return
+	}
+
+	overwritePolicy, _ := req["overwrite_policy"].(string)
+	if overwritePolicy == "" {
+		overwritePolicy, _ = req["restore_mode"].(string)
+	}
+	if overwritePolicy == "" {
+		overwritePolicy = "skip"
+	}
+
+	sourcePathPrefix, hasSourcePrefix := req["source_path_prefix"].(string)
+
 	var id uuid.UUID
-	err := s.pool.QueryRow(c.Request.Context(), `
-		INSERT INTO restore_jobs (source_version_id, file_selection, restore_mode, target_location, status)
-		VALUES ($1, $2, $3, $4, 'pending')
-		RETURNING restore_id
-	`, verID, req, mode, target).Scan(&id)
+	var err error
+	if hasSourcePrefix {
+		err = s.pool.QueryRow(c.Request.Context(), `
+			INSERT INTO restore_jobs (source_version_id, file_selection, restore_mode, target_location, source_path_prefix, overwrite_policy, status)
+			VALUES ($1, $2, $3, $4, $5, $6, 'pending')
+			RETURNING restore_id
+		`, verID, req, overwritePolicy, targetPath, sourcePathPrefix, overwritePolicy).Scan(&id)
+	} else {
+		err = s.pool.QueryRow(c.Request.Context(), `
+			INSERT INTO restore_jobs (source_version_id, file_selection, restore_mode, target_location, overwrite_policy, status)
+			VALUES ($1, $2, $3, $4, $5, 'pending')
+			RETURNING restore_id
+		`, verID, req, overwritePolicy, targetPath, overwritePolicy).Scan(&id)
+	}
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "create restore failed"})
 		return

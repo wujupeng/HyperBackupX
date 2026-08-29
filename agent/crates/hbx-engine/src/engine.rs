@@ -160,7 +160,8 @@ impl BackupEngine {
             };
 
             let reader: Box<dyn tokio::io::AsyncRead + Send + Unpin> = Box::new(file);
-            let chunk_stream = self.chunker.chunk(reader, self.chunk_strategy)?;
+            let strategy = job.chunking_profile.to_chunk_strategy(file_entry.size);
+            let chunk_stream = self.chunker.chunk(reader, strategy)?;
 
             let mut file_hasher = Sha256::new();
             let mut file_chunks: Vec<ChunkHash> = Vec::new();
@@ -304,7 +305,12 @@ impl BackupEngine {
             files: prev_manifest
                 .files
                 .iter()
-                .map(|f| (f.path.clone(), f.size, f.file_hash))
+                .map(|f| hbx_core::domain::backup::FileSnapshotEntry {
+                    path: f.path.clone(),
+                    size: f.size,
+                    mtime: f.modified_at,
+                    file_hash: f.file_hash,
+                })
                 .collect(),
         };
 
@@ -325,6 +331,9 @@ impl BackupEngine {
         let mut chunk_count: u64 = 0;
         let mut skipped_files: Vec<PathBuf> = Vec::new();
 
+        let baseline_file_chunks: std::collections::HashMap<String, Vec<ChunkHash>> =
+            prev_manifest.files.iter().map(|f| (f.path.clone(), f.chunks.clone())).collect();
+
         tokio::pin!(file_stream);
         while let Some(file_entry) = file_stream.next().await {
             changed_paths.insert(file_entry.path.clone());
@@ -340,54 +349,133 @@ impl BackupEngine {
             };
 
             let reader: Box<dyn tokio::io::AsyncRead + Send + Unpin> = Box::new(file);
-            let chunk_stream = self.chunker.chunk(reader, self.chunk_strategy)?;
-
             let mut file_hasher = Sha256::new();
             let mut file_chunks: Vec<ChunkHash> = Vec::new();
 
-            tokio::pin!(chunk_stream);
-            while let Some(chunk) = chunk_stream.next().await {
-                file_hasher.update(&chunk.data);
-                data_processed += chunk.data.len() as u64;
+            let baseline_chunks = baseline_file_chunks.get(&file_entry.path);
 
-                let hash = compute_chunk_hash(&chunk.data);
-                let lookup = self.dedup.batch_lookup(std::slice::from_ref(&hash))?;
-                let is_new = !lookup[0].exists;
+            if let Some(baseline_chunks) = baseline_chunks {
+                let chunk_diff = crate::chunk_diff::ChunkDiff::compute(
+                    self.chunker.as_ref(),
+                    reader,
+                    baseline_chunks,
+                    job.chunking_profile.to_chunk_strategy(file_entry.size),
+                )
+                .await?;
 
-                if is_new {
-                    if self.repo.chunk_exists(&hash)? {
-                        let location = self.repo.find_chunk(&hash)?;
-                        self.dedup.register_new(&hash, &location)?;
-                        chunk_locations.insert(hex::encode(hash.0), location);
-                        tracing::debug!(hash = ?hash, "chunk already exists in repo, idempotent skip");
-                    } else {
-                        tracker.set_state(ExecutionState::Encrypting);
-                        let compressed = self.compressor.compress(&chunk.data)?;
-                        let chunk_id = ChunkId(Uuid::new_v4());
-                        let encrypted = self.encryption.encrypt_chunk(&compressed, &chunk_id)?;
-
-                        tracker.set_state(ExecutionState::Uploading);
-                        let _guard = self.memory_budget.acquire(encrypted.ciphertext.len() as u64).await;
-                        let location = self.repo.write_chunk(&hash, &encrypted)?;
-                        data_stored += encrypted.ciphertext.len() as u64;
-
-                        self.dedup.register_new(&hash, &location)?;
-                        chunk_locations.insert(hex::encode(hash.0), location);
-                    }
-                } else if let Some(ref loc) = lookup[0].location {
-                    chunk_locations.insert(hex::encode(hash.0), loc.clone());
+                for chunk in chunk_diff.all_chunks() {
+                    file_hasher.update(&chunk.data);
+                    data_processed += chunk.data.len() as u64;
                 }
 
-                chunk_count += 1;
-                file_chunks.push(hash.clone());
+                for chunk in &chunk_diff.new_chunks {
+                    let hash = compute_chunk_hash(&chunk.data);
+                    let lookup = self.dedup.batch_lookup(std::slice::from_ref(&hash))?;
+                    let is_new = !lookup[0].exists;
 
-                let chunk_ref = ChunkReference {
-                    hash,
-                    version_id: version_id.clone(),
-                    file_path: file_entry.path.clone(),
-                    offset: chunk.offset,
-                };
-                changed_chunk_refs.push(chunk_ref);
+                    if is_new {
+                        if self.repo.chunk_exists(&hash)? {
+                            let location = self.repo.find_chunk(&hash)?;
+                            self.dedup.register_new(&hash, &location)?;
+                            chunk_locations.insert(hex::encode(hash.0), location);
+                        } else {
+                            tracker.set_state(ExecutionState::Encrypting);
+                            let compressed = self.compressor.compress(&chunk.data)?;
+                            let chunk_id = ChunkId(Uuid::new_v4());
+                            let encrypted = self.encryption.encrypt_chunk(&compressed, &chunk_id)?;
+
+                            tracker.set_state(ExecutionState::Uploading);
+                            let _guard = self.memory_budget.acquire(encrypted.ciphertext.len() as u64).await;
+                            let location = self.repo.write_chunk(&hash, &encrypted)?;
+                            data_stored += encrypted.ciphertext.len() as u64;
+
+                            self.dedup.register_new(&hash, &location)?;
+                            chunk_locations.insert(hex::encode(hash.0), location);
+                        }
+                    } else if let Some(ref loc) = lookup[0].location {
+                        chunk_locations.insert(hex::encode(hash.0), loc.clone());
+                    }
+
+                    chunk_count += 1;
+                    file_chunks.push(hash.clone());
+
+                    changed_chunk_refs.push(ChunkReference {
+                        hash,
+                        version_id: version_id.clone(),
+                        file_path: file_entry.path.clone(),
+                        offset: chunk.offset,
+                    });
+                }
+
+                for (i, hash) in chunk_diff.reused_chunk_refs.iter().enumerate() {
+                    chunk_count += 1;
+                    file_chunks.push(hash.clone());
+
+                    let hash_key = hex::encode(hash.0);
+                    if let Some(loc) = prev_manifest.chunk_locations.get(&hash_key) {
+                        chunk_locations.entry(hash_key).or_insert(loc.clone());
+                    }
+
+                    let offset = if i < chunk_diff.reused_chunks.len() {
+                        chunk_diff.reused_chunks[i].offset
+                    } else {
+                        0
+                    };
+
+                    changed_chunk_refs.push(ChunkReference {
+                        hash: hash.clone(),
+                        version_id: version_id.clone(),
+                        file_path: file_entry.path.clone(),
+                        offset,
+                    });
+                }
+            } else {
+                let strategy = job.chunking_profile.to_chunk_strategy(file_entry.size);
+            let chunk_stream = self.chunker.chunk(reader, strategy)?;
+                tokio::pin!(chunk_stream);
+                while let Some(chunk) = chunk_stream.next().await {
+                    file_hasher.update(&chunk.data);
+                    data_processed += chunk.data.len() as u64;
+
+                    let hash = compute_chunk_hash(&chunk.data);
+                    let lookup = self.dedup.batch_lookup(std::slice::from_ref(&hash))?;
+                    let is_new = !lookup[0].exists;
+
+                    if is_new {
+                        if self.repo.chunk_exists(&hash)? {
+                            let location = self.repo.find_chunk(&hash)?;
+                            self.dedup.register_new(&hash, &location)?;
+                            chunk_locations.insert(hex::encode(hash.0), location);
+                            tracing::debug!(hash = ?hash, "chunk already exists in repo, idempotent skip");
+                        } else {
+                            tracker.set_state(ExecutionState::Encrypting);
+                            let compressed = self.compressor.compress(&chunk.data)?;
+                            let chunk_id = ChunkId(Uuid::new_v4());
+                            let encrypted = self.encryption.encrypt_chunk(&compressed, &chunk_id)?;
+
+                            tracker.set_state(ExecutionState::Uploading);
+                            let _guard = self.memory_budget.acquire(encrypted.ciphertext.len() as u64).await;
+                            let location = self.repo.write_chunk(&hash, &encrypted)?;
+                            data_stored += encrypted.ciphertext.len() as u64;
+
+                            self.dedup.register_new(&hash, &location)?;
+                            chunk_locations.insert(hex::encode(hash.0), location);
+                        }
+                    } else if let Some(ref loc) = lookup[0].location {
+                        chunk_locations.insert(hex::encode(hash.0), loc.clone());
+                    }
+
+                    chunk_count += 1;
+                    file_chunks.push(hash.clone());
+
+                    let chunk_ref = ChunkReference {
+                        hash,
+                        version_id: version_id.clone(),
+                        file_path: file_entry.path.clone(),
+                        offset: chunk.offset,
+                    };
+                    changed_chunk_refs.push(chunk_ref);
+                }
             }
 
             let file_hash: [u8; 32] = file_hasher.finalize().into();
@@ -561,7 +649,8 @@ impl BackupEngine {
             };
 
             let reader: Box<dyn tokio::io::AsyncRead + Send + Unpin> = Box::new(file);
-            let chunk_stream = self.chunker.chunk(reader, self.chunk_strategy)?;
+            let strategy = job.chunking_profile.to_chunk_strategy(file_entry.size);
+            let chunk_stream = self.chunker.chunk(reader, strategy)?;
 
             let mut file_hasher = Sha256::new();
             let mut file_chunks: Vec<ChunkHash> = Vec::new();
@@ -750,7 +839,8 @@ impl BackupEngine {
             };
 
             let reader: Box<dyn tokio::io::AsyncRead + Send + Unpin> = Box::new(file);
-            let chunk_stream = self.chunker.chunk(reader, self.chunk_strategy)?;
+            let strategy = job.chunking_profile.to_chunk_strategy(file_entry.size);
+            let chunk_stream = self.chunker.chunk(reader, strategy)?;
 
             let mut file_hasher = Sha256::new();
             let mut file_chunks: Vec<ChunkHash> = Vec::new();
@@ -1111,6 +1201,7 @@ mod tests {
                 algorithm: CompressionAlgorithm::Zstd,
                 level: 3,
             },
+            chunking_profile: hbx_core::domain::chunking::ChunkingProfile::Standard,
             status: JobStatus::Active,
             created_at: chrono::Utc::now(),
         }
