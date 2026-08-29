@@ -93,8 +93,10 @@ fn print_help() {
     println!("    compat backup <job-id> --repo <repo-id>");
     println!("        Trigger a compatibility backup for the specified job");
     println!();
-    println!("    compat restore <version-id> --target <path> [--selection <rule>] [--mode <mode>]");
+    println!("    compat restore <version-id> --target <path> [--source <prefix>] [--overwrite <policy>] [--selection <rule>] [--mode <mode>]");
     println!("        Restore a compatibility version to the target path");
+    println!("        --source: path prefix to restore (default: all)");
+    println!("        --overwrite: skip|overwrite|rename (default: skip)");
     println!("        --selection: all|include:<patterns>|exclude:<patterns> (default: all)");
     println!("        --mode: original|overwrite|merge (default: original)");
     println!();

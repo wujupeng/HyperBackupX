@@ -1,18 +1,18 @@
 package middleware
 
-
 import (
 	"net/http"
 
-	"github.com/gin-gonic/gin"
 	"hbx-control/internal/auth"
+
+	"github.com/gin-gonic/gin"
 )
 
 var passwordChangeWhitelist = map[string]bool{
 	"/api/v1/auth/change-password": true,
-	"/api/v1/auth/logout":         true,
-	"/api/v1/auth/refresh":        true,
-	"/healthz":                    true,
+	"/api/v1/auth/logout":          true,
+	"/api/v1/auth/refresh":         true,
+	"/healthz":                     true,
 }
 
 func PasswordChangeMiddleware() gin.HandlerFunc {

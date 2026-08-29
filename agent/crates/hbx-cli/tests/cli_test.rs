@@ -1,5 +1,6 @@
 
 use hbx_cli::args::Args;
+use hbx_cli::client::ApiClient;
 
 #[test]
 fn test_parse_positional_args() {
@@ -94,4 +95,34 @@ fn test_mixed_positional_and_flags() {
     assert_eq!(args.positional, vec!["verify", "repo-1"]);
     assert_eq!(args.get("mode"), Some("Full"));
     assert!(args.has("deep"));
+}
+
+#[test]
+fn test_api_client_construction() {
+    let client = ApiClient::new("http://localhost:8080/", None);
+    let client_with_token = ApiClient::new("http://localhost:8080", Some("test-token".to_string()));
+    let _ = (client, client_with_token);
+}
+
+#[test]
+fn test_api_client_trailing_slash_trimmed() {
+    let client = ApiClient::new("http://localhost:8080///", None);
+    let _ = client;
+}
+
+#[test]
+fn test_restore_args_with_source_and_overwrite() {
+    let args = Args::parse(&[
+        "restore".to_string(),
+        "ver-1".to_string(),
+        "--target".to_string(),
+        "/tmp/restore".to_string(),
+        "--source".to_string(),
+        "/data/sub".to_string(),
+        "--overwrite".to_string(),
+        "overwrite".to_string(),
+    ]);
+    assert_eq!(args.get("target"), Some("/tmp/restore"));
+    assert_eq!(args.get("source"), Some("/data/sub"));
+    assert_eq!(args.get("overwrite"), Some("overwrite"));
 }

@@ -54,12 +54,12 @@ type registerDeviceRequest struct {
 }
 
 type registerDeviceResponse struct {
-	AgentID                string `json:"agent_id"`
-	AssignedGroup          string `json:"assigned_group"`
-	AgentToken             string `json:"agent_token"`
-	MtlsCertPem            string `json:"mtls_cert_pem"`
-	MtlsCaPem              string `json:"mtls_ca_pem"`
-	HeartbeatIntervalSecs  uint32 `json:"heartbeat_interval_secs"`
+	AgentID               string `json:"agent_id"`
+	AssignedGroup         string `json:"assigned_group"`
+	AgentToken            string `json:"agent_token"`
+	MtlsCertPem           string `json:"mtls_cert_pem"`
+	MtlsCaPem             string `json:"mtls_ca_pem"`
+	HeartbeatIntervalSecs uint32 `json:"heartbeat_interval_secs"`
 }
 
 func (s *Server) agentRegister(c *gin.Context) {
@@ -94,11 +94,11 @@ func (s *Server) agentRegister(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, registerDeviceResponse{
-		AgentID:                agentID,
-		AssignedGroup:          "default",
-		AgentToken:             agentToken,
-		MtlsCaPem:              string(s.ca.CACertPEM()),
-		HeartbeatIntervalSecs:  30,
+		AgentID:               agentID,
+		AssignedGroup:         "default",
+		AgentToken:            agentToken,
+		MtlsCaPem:             string(s.ca.CACertPEM()),
+		HeartbeatIntervalSecs: 30,
 	})
 }
 
