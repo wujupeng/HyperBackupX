@@ -51,3 +51,12 @@ coverage/
 
 # Spec artifacts
 .codeartsdoer/
+
+# Sensitive config (contains JWT secrets / credentials)
+badou-server.json
+tmp-badou-server.json
+deploy/login.json
+
+# Temporary artifacts
+tmp-badou.tar.gz
+tmp-badou-data/

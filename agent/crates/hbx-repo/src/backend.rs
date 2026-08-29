@@ -5,8 +5,8 @@ use std::time::Duration;
 use hbx_core::domain::chunk::{ChunkHash, ChunkLocation};
 use hbx_core::domain::common::{LockOperation, RepoLock, RepositoryId, VersionId, VersionSummary};
 use hbx_core::domain::encryption::EncryptedChunk;
-use hbx_core::domain::repository::{Manifest, BackendType};
-use hbx_core::pipeline::{IBackupRepository, RepoError};
+use hbx_core::domain::repository::{Manifest, BackendType, ObjectInfo, ObjectListPage, PageToken, ConnectionTestResult};
+use hbx_core::pipeline::{IBackupRepository, IBackupRepositoryExt, RepoError};
 use parking_lot::Mutex;
 use uuid::Uuid;
 
@@ -205,12 +205,81 @@ impl IBackupRepository for LocalRepository {
     }
 }
 
+impl IBackupRepositoryExt for LocalRepository {
+    fn test_connection(&self) -> Result<ConnectionTestResult, RepoError> {
+        if self.root.exists() {
+            Ok(ConnectionTestResult::Passed)
+        } else {
+            Ok(ConnectionTestResult::Failed)
+        }
+    }
+
+    fn list_objects(
+        &self,
+        prefix: &str,
+        _page_token: Option<&PageToken>,
+        max_keys: u32,
+    ) -> Result<ObjectListPage, RepoError> {
+        let base = if prefix.is_empty() {
+            self.root.clone()
+        } else {
+            self.root.join(prefix)
+        };
+
+        let mut objects = Vec::new();
+        if base.exists() {
+            for entry in fs::read_dir(&base)? {
+                let entry = entry?;
+                let path = entry.path();
+                if !path.is_file() {
+                    continue;
+                }
+                let metadata = entry.metadata()?;
+                let key = if prefix.is_empty() {
+                    entry.file_name().to_string_lossy().to_string()
+                } else {
+                    format!("{}/{}", prefix, entry.file_name().to_string_lossy())
+                };
+                objects.push(ObjectInfo {
+                    key,
+                    size: metadata.len(),
+                    last_modified: chrono::DateTime::from(metadata.modified()?),
+                });
+                if objects.len() >= max_keys as usize {
+                    break;
+                }
+            }
+        }
+
+        Ok(ObjectListPage {
+            objects,
+            next_token: None,
+        })
+    }
+
+    fn delete_object(&self, key: &str) -> Result<(), RepoError> {
+        let path = self.root.join(key);
+        if path.exists() {
+            fs::remove_file(&path)?;
+        }
+        Ok(())
+    }
+}
+
 pub mod config;
 pub mod s3;
 pub mod webdav;
 pub mod sftp;
 pub mod ftp;
+#[allow(dead_code)]
+pub mod ftps;
 pub mod smb;
+#[allow(dead_code)]
+pub mod azure_blob;
+#[allow(dead_code)]
+pub mod gcs;
+#[allow(dead_code)]
+pub mod openstack;
 
 #[cfg(test)]
 mod tests {
@@ -292,6 +361,7 @@ mod tests {
                 chunk_index_hash: [0u8; 32],
                 repo_hash: [0u8; 32],
             },
+            chunk_locations: Default::default(),
         };
 
         repo.write_manifest(&version_id, &manifest).unwrap();
@@ -319,6 +389,7 @@ mod tests {
                     chunk_index_hash: [0u8; 32],
                     repo_hash: [0u8; 32],
                 },
+                chunk_locations: Default::default(),
             };
             repo.write_manifest(&version_id, &manifest).unwrap();
         }
@@ -332,5 +403,76 @@ mod tests {
         let (_tmp, repo) = setup_repo();
         let lock = repo.acquire_lock(LockOperation::Backup, Duration::from_secs(60)).unwrap();
         assert_eq!(lock.holder, "Backup");
+    }
+
+    #[test]
+    fn test_ext_default_connect() {
+        let (_tmp, repo) = setup_repo();
+        assert!(repo.connect().is_ok());
+    }
+
+    #[test]
+    fn test_ext_test_connection_passed() {
+        let (_tmp, repo) = setup_repo();
+        let result = repo.test_connection().unwrap();
+        assert_eq!(result, ConnectionTestResult::Passed);
+    }
+
+    #[test]
+    fn test_ext_list_objects() {
+        let (_tmp, repo) = setup_repo();
+        let hash = ChunkHash([0x11; 32]);
+        let encrypted = EncryptedChunk {
+            ciphertext: vec![1, 2, 3],
+            nonce: [0u8; 12],
+            auth_tag: [0u8; 16],
+        };
+        repo.write_chunk(&hash, &encrypted).unwrap();
+
+        let page = repo.list_objects("chunks/11", None, 100).unwrap();
+        assert!(!page.objects.is_empty());
+    }
+
+    #[test]
+    fn test_ext_delete_object() {
+        let (_tmp, repo) = setup_repo();
+        let hash = ChunkHash([0x22; 32]);
+        let encrypted = EncryptedChunk {
+            ciphertext: vec![1],
+            nonce: [0u8; 12],
+            auth_tag: [0u8; 16],
+        };
+        let loc = repo.write_chunk(&hash, &encrypted).unwrap();
+        let key = format!("chunks/{}/{}", loc.bucket, loc.path);
+        repo.delete_object(&key).unwrap();
+        assert!(!repo.chunk_exists(&hash).unwrap());
+    }
+
+    #[test]
+    fn test_backend_type_new_variants_serde() {
+        use hbx_core::domain::repository::BackendType;
+
+        let variants = vec![
+            BackendType::GoogleCloudStorage,
+            BackendType::OpenStack,
+            BackendType::AzureBlob,
+            BackendType::Ftps,
+        ];
+        for v in &variants {
+            let json = serde_json::to_string(v).unwrap();
+            let de: BackendType = serde_json::from_str(&json).unwrap();
+            assert_eq!(*v, de);
+        }
+    }
+
+    #[test]
+    fn test_backend_type_display() {
+        use hbx_core::domain::repository::BackendType;
+
+        assert_eq!(BackendType::GoogleCloudStorage.to_string(), "gcs");
+        assert_eq!(BackendType::OpenStack.to_string(), "openstack");
+        assert_eq!(BackendType::AzureBlob.to_string(), "azure-blob");
+        assert_eq!(BackendType::Ftps.to_string(), "ftps");
+        assert_eq!(BackendType::S3.to_string(), "s3");
     }
 }

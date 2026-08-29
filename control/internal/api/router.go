@@ -14,16 +14,19 @@ import (
 
 	"hbx-control/internal/audit"
 	"hbx-control/internal/auth"
+	"hbx-control/internal/compatimport"
 	"hbx-control/internal/hbx"
 	"hbx-control/internal/rbac"
+
 )
 
 type Server struct {
-	pool        *pgxpool.Pool
-	redis       *redis.Client
-	jwtMgr      *auth.JWTManager
-	auditLogger *audit.Logger
-	ca          *hbx.CA
+	pool          *pgxpool.Pool
+	redis         *redis.Client
+	jwtMgr        *auth.JWTManager
+	auditLogger   *audit.Logger
+	ca            *hbx.CA
+	compatImporter *compatimport.DuplicatiConfigImporter
 }
 
 func NewServer(pool *pgxpool.Pool, redis *redis.Client, jwtMgr *auth.JWTManager, auditLogger *audit.Logger) *Server {
@@ -32,11 +35,12 @@ func NewServer(pool *pgxpool.Pool, redis *redis.Client, jwtMgr *auth.JWTManager,
 		panic("failed to initialize CA: " + err.Error())
 	}
 	return &Server{
-		pool:        pool,
-		redis:       redis,
-		jwtMgr:      jwtMgr,
-		auditLogger: auditLogger,
-		ca:          ca,
+		pool:          pool,
+		redis:         redis,
+		jwtMgr:        jwtMgr,
+		auditLogger:   auditLogger,
+		ca:            ca,
+		compatImporter: compatimport.NewImporter(compatimport.UnsupportedSkip),
 	}
 }
 
@@ -118,6 +122,54 @@ func (s *Server) RegisterRoutes(r *gin.Engine) {
 			authed.PUT("/organizations/:id", s.RBAC(rbac.PermOrgsAll), s.updateOrganization)
 
 			authed.POST("/upgrade/agents", s.RBAC(rbac.PermUpgradeAll), s.upgradeAgents)
+
+			compatGroup := authed.Group("/compat")
+			{
+				compatGroup.GET("/repositories", s.RBAC(rbac.PermCompatRead), s.listCompatRepos)
+				compatGroup.POST("/repositories", s.RBAC(rbac.PermCompatWrite), s.createCompatRepo)
+				compatGroup.PUT("/repositories/:id", s.RBAC(rbac.PermCompatWrite), s.updateCompatRepo)
+				compatGroup.DELETE("/repositories/:id", s.RBAC(rbac.PermCompatWrite), s.deleteCompatRepo)
+				compatGroup.POST("/repositories/:id/self-check", s.RBAC(rbac.PermCompatCheck), s.selfCheckCompatRepo)
+
+				compatGroup.GET("/jobs", s.RBAC(rbac.PermCompatRead), s.listCompatJobs)
+				compatGroup.POST("/jobs", s.RBAC(rbac.PermCompatWrite), s.createCompatJob)
+				compatGroup.PUT("/jobs/:id", s.RBAC(rbac.PermCompatWrite), s.updateCompatJob)
+				compatGroup.DELETE("/jobs/:id", s.RBAC(rbac.PermCompatWrite), s.deleteCompatJob)
+				compatGroup.POST("/jobs/:id/trigger", s.RBAC(rbac.PermCompatTrigger), s.triggerCompatJob)
+				compatGroup.POST("/jobs/:id/dual-check", s.RBAC(rbac.PermCompatCheck), s.dualCheckCompatJob)
+
+				compatGroup.GET("/dual-repo-configs", s.RBAC(rbac.PermCompatRead), s.listDualRepoConfigs)
+				compatGroup.POST("/dual-repo-configs", s.RBAC(rbac.PermCompatWrite), s.createDualRepoConfig)
+				compatGroup.DELETE("/dual-repo-configs/:id", s.RBAC(rbac.PermCompatWrite), s.deleteDualRepoConfig)
+
+				compatGroup.GET("/executions", s.RBAC(rbac.PermCompatRead), s.listCompatExecutions)
+				compatGroup.POST("/executions/report", s.RBAC(rbac.PermCompatTrigger), s.reportCompatExecution)
+
+				compatGroup.GET("/metrics", s.RBAC(rbac.PermCompatRead), s.listCompatMetrics)
+
+				compatGroup.POST("/import", s.RBAC(rbac.PermCompatImport), s.importDuplicatiConfig)
+				compatGroup.GET("/import/:id", s.RBAC(rbac.PermCompatRead), s.getImportRecord)
+				compatGroup.GET("/imports", s.RBAC(rbac.PermCompatRead), s.listImportRecords)
+
+				compatGroup.GET("/matrix", s.RBAC(rbac.PermCompatRead), s.listMatrixEntries)
+				compatGroup.POST("/matrix/execute", s.RBAC(rbac.PermCompatTrigger), s.executeMatrix)
+				compatGroup.POST("/golden/execute", s.RBAC(rbac.PermCompatTrigger), s.executeGolden)
+				compatGroup.GET("/golden/report", s.RBAC(rbac.PermCompatRead), s.getGoldenReport)
+				compatGroup.POST("/dual-run", s.RBAC(rbac.PermCompatTrigger), s.triggerDualRun)
+			compatGroup.GET("/dual-run/:id", s.RBAC(rbac.PermCompatRead), s.getDualRunResult)
+			compatGroup.GET("/reports", s.RBAC(rbac.PermCompatRead), s.listTestReports)
+
+			compatGroup.POST("/fuzz/execute", s.RBAC(rbac.PermCompatTrigger), s.executeFuzz)
+			compatGroup.GET("/fuzz/report", s.RBAC(rbac.PermCompatRead), s.getFuzzReport)
+			compatGroup.POST("/chaos/execute", s.RBAC(rbac.PermCompatTrigger), s.executeChaos)
+			compatGroup.GET("/chaos/report", s.RBAC(rbac.PermCompatRead), s.getChaosReport)
+
+			compatGroup.GET("/acceptance", s.RBAC(rbac.PermCompatRead), s.getAcceptanceReport)
+			compatGroup.POST("/acceptance/trigger", s.RBAC(rbac.PermCompatTrigger), s.triggerAcceptance)
+			compatGroup.POST("/acceptance/sign", s.RBAC(rbac.PermCompatWrite), s.signAcceptance)
+			}
+
+			s.registerBadouRoutes(authed)
 		}
 
 		agentGroup := v1.Group("/agent")
@@ -130,6 +182,9 @@ func (s *Server) RegisterRoutes(r *gin.Engine) {
 			agentGroup.POST("/log", s.agentLog)
 			agentGroup.POST("/sign-csr", s.agentSignCSR)
 			agentGroup.GET("/ca-cert", s.agentCACert)
+			agentGroup.GET("/compat-commands", s.getCompatPendingCommands)
+			agentGroup.POST("/compat-task-result", s.agentCompatTaskResult)
+			agentGroup.POST("/dual-check-result", s.agentDualCheckResult)
 		}
 	}
 }

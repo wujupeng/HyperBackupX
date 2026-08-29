@@ -198,7 +198,7 @@ mod tests {
 
         index.register_new(&hash, &location).unwrap();
 
-        let results = index.batch_lookup(&[hash.clone()]).unwrap();
+        let results = index.batch_lookup(std::slice::from_ref(&hash)).unwrap();
         assert!(results[0].exists);
         assert_eq!(results[0].reference_count, 0);
         assert_eq!(results[0].location.as_ref().unwrap(), &location);
@@ -225,17 +225,17 @@ mod tests {
 
         index.add_references(&refs).unwrap();
 
-        let results = index.batch_lookup(&[hash.clone()]).unwrap();
+        let results = index.batch_lookup(std::slice::from_ref(&hash)).unwrap();
         assert_eq!(results[0].reference_count, 1);
 
         index.add_references(&refs).unwrap();
-        let results = index.batch_lookup(&[hash.clone()]).unwrap();
+        let results = index.batch_lookup(std::slice::from_ref(&hash)).unwrap();
         assert_eq!(results[0].reference_count, 2);
 
         let orphaned = index.remove_references(&refs).unwrap();
         assert!(orphaned.is_empty());
 
-        let results = index.batch_lookup(&[hash.clone()]).unwrap();
+        let results = index.batch_lookup(std::slice::from_ref(&hash)).unwrap();
         assert_eq!(results[0].reference_count, 1);
 
         let orphaned = index.remove_references(&refs).unwrap();

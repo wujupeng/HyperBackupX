@@ -163,6 +163,10 @@ message Command {
   CommandType type = 3;
   bytes payload = 4;
   uint32 timeout_secs = 5;
+  TriggerCompatBackup compat_backup = 9;
+  TriggerCompatRestore compat_restore = 10;
+  DualRepoConsistencyCheck dual_check = 11;
+  string trace_id = 12;
 }
 
 enum CommandType {
@@ -177,6 +181,9 @@ enum CommandType {
   COMMAND_TYPE_UPGRADE_AGENT = 8;
   COMMAND_TYPE_VERIFY_VERSION = 9;
   COMMAND_TYPE_CLEANUP_ORPHANS = 10;
+  COMMAND_TYPE_TRIGGER_COMPAT_BACKUP = 11;
+  COMMAND_TYPE_TRIGGER_COMPAT_RESTORE = 12;
+  COMMAND_TYPE_DUAL_REPO_CHECK = 13;
 }
 
 // ---- 任务结果 ----
@@ -196,6 +203,7 @@ message TaskResult {
   string version_id = 12;
   string error_message = 13;
   string trace_id = 14;
+  CompatTaskResult compat_result = 15;
 }
 
 enum TaskStatus {
@@ -238,4 +246,80 @@ message LogEntry {
 
 message LogAck {
   bool accepted = 1;
+}
+
+// ---- Duplicati 兼容任务指令 ----
+
+message TriggerCompatBackup {
+  string job_id = 1;
+  string source_path = 2;
+  string repository_id = 3;
+  DuplicatiSemanticConfig semantic_config = 4;
+  string trace_id = 5;
+}
+
+message TriggerCompatRestore {
+  string job_id = 1;
+  string version_id = 2;
+  string target_path = 3;
+  string repository_id = 4;
+  repeated string file_filters = 5;
+  string trace_id = 6;
+}
+
+message DualRepoConsistencyCheck {
+  string job_id = 1;
+  string native_repo_id = 2;
+  string compat_repo_id = 3;
+  string version_id = 4;
+  string trace_id = 5;
+}
+
+message CompatTaskResult {
+  string native_version_id = 1;
+  string compat_version_id = 2;
+  bool semantic_match = 3;
+  bool hash_match = 4;
+  string mismatch_detail = 5;
+}
+
+message DuplicatiSemanticConfig {
+  repeated DuplicatiFilterRule filters = 1;
+  DuplicatiVersionStrategy version_strategy = 2;
+  DuplicatiCompressionConfig compression = 3;
+  DuplicatiEncryptionConfig encryption = 4;
+  DuplicatiRetentionConfig retention = 5;
+}
+
+message DuplicatiFilterRule {
+  string pattern = 1;
+  FilterAction action = 2;
+}
+
+enum FilterAction {
+  FILTER_ACTION_UNSPECIFIED = 0;
+  FILTER_ACTION_INCLUDE = 1;
+  FILTER_ACTION_EXCLUDE = 2;
+}
+
+message DuplicatiVersionStrategy {
+  bool incremental = 1;
+  uint32 full_backup_interval = 2;
+}
+
+message DuplicatiCompressionConfig {
+  string algorithm = 1;
+  uint32 level = 2;
+}
+
+message DuplicatiEncryptionConfig {
+  string algorithm = 1;
+  string passphrase_ref = 2;
+}
+
+message DuplicatiRetentionConfig {
+  uint32 keep_versions = 1;
+  uint32 keep_days = 2;
+  uint32 keep_weeks = 3;
+  uint32 keep_months = 4;
 }

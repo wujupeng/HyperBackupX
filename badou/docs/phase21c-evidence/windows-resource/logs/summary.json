@@ -1,0 +1,53 @@
+﻿{
+    "machine":  "10.1.8.107",
+    "os":  "Windows 11 24H2",
+    "build":  "26100",
+    "ram_mb":  8191,
+    "timestamp":  "2026-08-27T18:54:20.0760417+08:00",
+    "results":  [
+                    {
+                        "phase":  "idle",
+                        "duration_sec":  10,
+                        "peak_rss_mb":  4.92,
+                        "peak_private_mb":  0.68,
+                        "cpu_avg_percent":  0,
+                        "peak_handle_count":  77,
+                        "peak_thread_count":  2,
+                        "sample_count":  20,
+                        "exit_code":  null
+                    },
+                    {
+                        "phase":  "backup",
+                        "duration_sec":  10,
+                        "peak_rss_mb":  5,
+                        "peak_private_mb":  0.75,
+                        "cpu_avg_percent":  0.94,
+                        "peak_handle_count":  77,
+                        "peak_thread_count":  2,
+                        "sample_count":  19,
+                        "exit_code":  null
+                    },
+                    {
+                        "phase":  "incremental",
+                        "duration_sec":  10,
+                        "peak_rss_mb":  4.94,
+                        "peak_private_mb":  0.68,
+                        "cpu_avg_percent":  0.78,
+                        "peak_handle_count":  77,
+                        "peak_thread_count":  2,
+                        "sample_count":  21,
+                        "exit_code":  null
+                    },
+                    {
+                        "phase":  "restore",
+                        "duration_sec":  10,
+                        "peak_rss_mb":  5,
+                        "peak_private_mb":  0.75,
+                        "cpu_avg_percent":  0.31,
+                        "peak_handle_count":  77,
+                        "peak_thread_count":  2,
+                        "sample_count":  20,
+                        "exit_code":  null
+                    }
+                ]
+}

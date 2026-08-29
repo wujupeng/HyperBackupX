@@ -24,6 +24,14 @@ const (
 	PermRolesAll     Permission = "roles:*"
 	PermOrgsAll      Permission = "organizations:*"
 	PermUpgradeAll   Permission = "upgrade:*"
+	PermCompatRead    Permission = "compat:read"
+	PermCompatWrite   Permission = "compat:write"
+	PermCompatTrigger Permission = "compat:trigger"
+	PermCompatImport  Permission = "compat:import"
+	PermCompatCheck   Permission = "compat:check"
+	PermBadouRead     Permission = "badou:read"
+	PermBadouWrite    Permission = "badou:write"
+	PermBadouAdmin    Permission = "badou:admin"
 )
 
 func Check(permissions []string, required Permission) bool {

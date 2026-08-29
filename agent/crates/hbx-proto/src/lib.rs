@@ -142,6 +142,14 @@ pub struct Command {
     pub command_type: CommandType,
     pub payload: Vec<u8>,
     pub timeout_secs: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub compat_backup: Option<TriggerCompatBackup>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub compat_restore: Option<TriggerCompatRestore>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dual_check: Option<DualRepoConsistencyCheck>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub trace_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -158,6 +166,9 @@ pub enum CommandType {
     UpgradeAgent,
     VerifyVersion,
     CleanupOrphans,
+    TriggerCompatBackup,
+    TriggerCompatRestore,
+    DualRepoCheck,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -176,6 +187,8 @@ pub struct TaskResult {
     pub version_id: Option<String>,
     pub error_message: Option<String>,
     pub trace_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub compat_result: Option<CompatTaskResult>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -210,6 +223,99 @@ pub struct LogEntry {
     pub message: String,
     pub trace_id: String,
     pub fields: HashMap<String, String>,
+}
+
+// ---- Duplicati 兼容任务指令 ----
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TriggerCompatBackup {
+    pub job_id: String,
+    pub source_path: String,
+    pub repository_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub semantic_config: Option<DuplicatiSemanticConfig>,
+    pub trace_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TriggerCompatRestore {
+    pub job_id: String,
+    pub version_id: String,
+    pub target_path: String,
+    pub repository_id: String,
+    pub file_filters: Vec<String>,
+    pub trace_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DualRepoConsistencyCheck {
+    pub job_id: String,
+    pub native_repo_id: String,
+    pub compat_repo_id: String,
+    pub version_id: String,
+    pub trace_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CompatTaskResult {
+    pub native_version_id: Option<String>,
+    pub compat_version_id: Option<String>,
+    pub semantic_match: bool,
+    pub hash_match: bool,
+    pub mismatch_detail: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DuplicatiSemanticConfig {
+    pub filters: Vec<DuplicatiFilterRule>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub version_strategy: Option<DuplicatiVersionStrategy>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub compression: Option<DuplicatiCompressionConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub encryption: Option<DuplicatiEncryptionConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub retention: Option<DuplicatiRetentionConfig>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DuplicatiFilterRule {
+    pub pattern: String,
+    pub action: FilterAction,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum FilterAction {
+    Unspecified,
+    Include,
+    Exclude,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DuplicatiVersionStrategy {
+    pub incremental: bool,
+    pub full_backup_interval: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DuplicatiCompressionConfig {
+    pub algorithm: String,
+    pub level: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DuplicatiEncryptionConfig {
+    pub algorithm: String,
+    pub passphrase_ref: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DuplicatiRetentionConfig {
+    pub keep_versions: u32,
+    pub keep_days: u32,
+    pub keep_weeks: u32,
+    pub keep_months: u32,
 }
 
 #[cfg(test)]
@@ -263,6 +369,10 @@ mod tests {
             command_type: CommandType::TriggerBackup,
             payload: b"backup now".to_vec(),
             timeout_secs: 3600,
+            compat_backup: None,
+            compat_restore: None,
+            dual_check: None,
+            trace_id: None,
         };
         let json = serde_json::to_string(&cmd).unwrap();
         let de: Command = serde_json::from_str(&json).unwrap();
@@ -286,6 +396,7 @@ mod tests {
             version_id: Some("v1".into()),
             error_message: None,
             trace_id: "trace-1".into(),
+            compat_result: None,
         };
         let json = serde_json::to_string(&result).unwrap();
         let de: TaskResult = serde_json::from_str(&json).unwrap();

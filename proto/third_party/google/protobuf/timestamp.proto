@@ -4,7 +4,7 @@ package google.protobuf;
 
 option cc_enable_arenas = true;
 option go_package = "google.golang.org/protobuf/types/known/timestamppb";
-option java_class = "com.google.protobuf.Timestamp";
+option java_outer_classname = "TimestampProto";
 option java_package = "com.google.protobuf";
 
 message Timestamp {

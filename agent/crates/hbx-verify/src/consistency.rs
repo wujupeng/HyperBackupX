@@ -293,6 +293,7 @@ mod tests {
                 chunk_index_hash: [0u8; 32],
                 repo_hash: [0u8; 32],
             },
+            chunk_locations: Default::default(),
         }
     }
 

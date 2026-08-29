@@ -17,7 +17,12 @@ pub enum ConnectionConfig {
     WebDav(WebDavConfig),
     Sftp(SftpConfig),
     Ftp(FtpConfig),
+    Ftps(FtpsConfig),
     Smb(SmbConfig),
+    AzureBlob(AzureBlobConfig),
+    Gcs(GcsConfig),
+    OpenStack(OpenStackConfig),
+    BaDou(BaDouConfig),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -58,6 +63,42 @@ pub struct SmbConfig {
     pub base_path: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FtpsConfig {
+    pub host: String,
+    pub port: u16,
+    pub base_path: String,
+    pub implicit_tls: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AzureBlobConfig {
+    pub endpoint: String,
+    pub container: String,
+    pub use_s3_compat: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GcsConfig {
+    pub endpoint: String,
+    pub bucket: String,
+    pub use_s3_compat: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenStackConfig {
+    pub endpoint: String,
+    pub container: String,
+    pub use_s3_compat: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BaDouConfig {
+    pub endpoint: String,
+    pub repo_id: String,
+    pub use_tls: bool,
+}
+
 impl BackendConfig {
     pub fn local(root_path: impl Into<String>) -> Self {
         Self {
@@ -90,6 +131,18 @@ impl BackendConfig {
                 endpoint: endpoint.into(),
                 base_path: base_path.into(),
                 use_tls: true,
+            }),
+            credentials_id: String::new(),
+        }
+    }
+
+    pub fn badou(endpoint: impl Into<String>, repo_id: impl Into<String>) -> Self {
+        Self {
+            backend_type: BackendType::BaDou,
+            connection: ConnectionConfig::BaDou(BaDouConfig {
+                endpoint: endpoint.into(),
+                repo_id: repo_id.into(),
+                use_tls: false,
             }),
             credentials_id: String::new(),
         }

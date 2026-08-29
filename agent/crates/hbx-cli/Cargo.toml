@@ -1,0 +1,25 @@
+[package]
+name = "hbx-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "HBX CLI - Duplicati-compatible command line interface"
+
+[dependencies]
+hbx-core = { workspace = true }
+hbx-compat-engine = { workspace = true }
+hbx-engine = { workspace = true }
+hbx-restore = { workspace = true }
+hbx-compat-sem = { workspace = true }
+hbx-compat-repo = { workspace = true }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+anyhow = { workspace = true }
+chrono = { workspace = true }
+ureq = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }

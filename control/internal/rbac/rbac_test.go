@@ -78,3 +78,49 @@ func TestBuiltinRolePermissions(t *testing.T) {
 		t.Error("auditor should not manage users")
 	}
 }
+
+func TestBadouPermissions(t *testing.T) {
+	storageAdminPerms := []string{"badou:read", "badou:write", "badou:admin"}
+
+	if !Check(storageAdminPerms, PermBadouRead) {
+		t.Error("storage admin should have badou:read")
+	}
+	if !Check(storageAdminPerms, PermBadouWrite) {
+		t.Error("storage admin should have badou:write")
+	}
+	if !Check(storageAdminPerms, PermBadouAdmin) {
+		t.Error("storage admin should have badou:admin")
+	}
+
+	operatorPerms := []string{"badou:read", "badou:write"}
+	if !Check(operatorPerms, PermBadouRead) {
+		t.Error("operator should have badou:read")
+	}
+	if !Check(operatorPerms, PermBadouWrite) {
+		t.Error("operator should have badou:write")
+	}
+	if Check(operatorPerms, PermBadouAdmin) {
+		t.Error("operator should not have badou:admin")
+	}
+
+	viewerPerms := []string{"badou:read"}
+	if !Check(viewerPerms, PermBadouRead) {
+		t.Error("viewer should have badou:read")
+	}
+	if Check(viewerPerms, PermBadouWrite) {
+		t.Error("viewer should not have badou:write")
+	}
+}
+
+func TestBadouWildcardAdmin(t *testing.T) {
+	adminPerms := []string{"*"}
+	if !Check(adminPerms, PermBadouRead) {
+		t.Error("admin * should match badou:read")
+	}
+	if !Check(adminPerms, PermBadouWrite) {
+		t.Error("admin * should match badou:write")
+	}
+	if !Check(adminPerms, PermBadouAdmin) {
+		t.Error("admin * should match badou:admin")
+	}
+}

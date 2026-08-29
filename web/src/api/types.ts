@@ -34,6 +34,8 @@ export interface Repository {
   status: string;
   used_capacity: number | null;
   total_capacity: number | null;
+  connection_config?: Record<string, unknown>;
+  created_at?: string;
 }
 
 export interface BackupJob {
@@ -131,4 +133,123 @@ export interface LoginResponse {
 
 export interface ApiListResponse<T> {
   [key: string]: T[];
+}
+
+export type BackendType = 'local' | 'smb' | 'ftp' | 'ftps' | 'sftp' | 'webdav' | 's3' | 'azure_blob' | 'gcs' | 'openstack';
+
+export interface BindPoliciesRequest {
+  policy_ids: string[];
+}
+
+export interface JobCreateRequest {
+  name: string;
+  device_id: string;
+  backup_config?: Record<string, unknown>;
+  source_config?: Record<string, unknown>;
+  destination_config?: Record<string, unknown>;
+  schedule?: Record<string, unknown>;
+  retention?: Record<string, unknown>;
+  encryption?: Record<string, unknown>;
+}
+
+export interface JobUpdateRequest {
+  name?: string;
+  device_id?: string;
+  backup_config?: Record<string, unknown>;
+}
+
+export interface RepositoryCreateRequest {
+  name: string;
+  backend_type: BackendType;
+  connection_config: Record<string, unknown>;
+}
+
+export interface RepositoryUpdateRequest {
+  name?: string;
+  connection_config?: Record<string, unknown>;
+}
+
+export interface RepositoryVerifyResponse {
+  status: string;
+  reachable: boolean;
+  message?: string;
+}
+
+export interface BadouRepository {
+  repo_id: string;
+  name: string;
+  description: string;
+  node_address: string;
+  node_port: number;
+  tls_cert_path: string;
+  tls_key_path: string;
+  tls_ca_path: string;
+  jwt_subject: string;
+  jwt_secret_ref: string;
+  immutable_retention_days: number;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BadouCreateRepoRequest {
+  name: string;
+  description?: string;
+  node_address: string;
+  node_port?: number;
+  tls_cert_path?: string;
+  tls_key_path?: string;
+  tls_ca_path?: string;
+  jwt_subject?: string;
+  jwt_secret_ref?: string;
+  immutable_retention_days?: number;
+}
+
+export interface BadouVersion {
+  version_id: string;
+  created_at: string;
+  size: number;
+  chunk_count: number;
+  status: string;
+}
+
+export interface BadouGCReport {
+  report_id: string;
+  repo_id: string;
+  triggered_by: string;
+  chunks_scanned: number;
+  chunks_deleted: number;
+  bytes_freed: number;
+  duration_ms: number;
+  status: string;
+  started_at: string;
+  completed_at: string | null;
+}
+
+export interface BadouVerifyResult {
+  repo_id: string;
+  level: string;
+  passed: boolean;
+  errors: number;
+  warnings: number;
+}
+
+export interface BadouNode {
+  node_id: string;
+  node_address: string;
+  node_port: number;
+  node_role: string;
+  status: string;
+  disk_capacity_bytes: number;
+  disk_used_bytes: number;
+  joined_at: string;
+  last_heartbeat_at: string | null;
+}
+
+export interface BadouClusterHealth {
+  status: string;
+  total_nodes: number;
+  online_nodes: number;
+  leader_id: string;
+  nodes: { node_id: string; address: string; status: string; healthy: boolean }[];
 }

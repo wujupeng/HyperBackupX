@@ -359,7 +359,7 @@ mod tests {
         let decision = executor().compute(&versions, &policy).unwrap();
 
         assert!(decision.keep.len() >= 7);
-        assert!(decision.delete.len() > 0);
+        assert!(!decision.delete.is_empty());
 
         let all_ids: HashSet<VersionId> = decision.keep.iter().cloned().collect();
         let del_ids: HashSet<VersionId> = decision.delete.iter().cloned().collect();

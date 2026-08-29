@@ -1,0 +1,36 @@
+[package]
+name = "badou-tests"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+badou-engine = { workspace = true }
+badou-store = { workspace = true }
+badou-index = { workspace = true }
+badou-journal = { workspace = true }
+badou-state = { workspace = true }
+badou-ops = { workspace = true }
+badou-gc = { workspace = true }
+badou-verify = { workspace = true }
+badou-recovery = { workspace = true }
+badou-hbop-client = { workspace = true }
+badou-proto = { workspace = true }
+tonic = { workspace = true }
+hbx-core = { workspace = true }
+tokio = { workspace = true }
+tokio-stream = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+blake3 = { workspace = true }
+bytes = { workspace = true }
+hex = { workspace = true }
+prost-types = "0.13"
+hmac = "0.12"
+sha2 = "0.10"
+base64 = "0.22"
+tempfile = { workspace = true }
+anyhow = { workspace = true }
+parking_lot = { workspace = true }

@@ -3,6 +3,10 @@ import type {
   LoginRequest, LoginResponse, Device, Policy, Repository,
   BackupJob, BackupVersion, RestoreJob, Alert, AuditLog, AgentLog,
   Role, Organization, DashboardData, User,
+  BindPoliciesRequest, JobCreateRequest, JobUpdateRequest,
+  RepositoryCreateRequest, RepositoryUpdateRequest, RepositoryVerifyResponse,
+  BadouRepository, BadouCreateRepoRequest, BadouVersion, BadouGCReport,
+  BadouVerifyResult, BadouNode, BadouClusterHealth,
 } from './types';
 
 export const authApi = {
@@ -14,8 +18,8 @@ export const deviceApi = {
   list: () => get<{ devices: Device[] }>('/devices'),
   create: (data: { hostname: string; os_type: string }) => post<Device>('/devices', data),
   remove: (id: string) => del(`/devices/${id}`),
-  getPolicies: (id: string) => get(`/devices/${id}/policies`),
-  bindPolicies: (id: string, data: unknown) => put(`/devices/${id}/policies`, data),
+  getPolicies: (id: string) => get<{ policies: Policy[] }>(`/devices/${id}/policies`),
+  bindPolicies: (id: string, data: BindPoliciesRequest) => put(`/devices/${id}/policies`, data),
 };
 
 export const policyApi = {
@@ -29,16 +33,16 @@ export const policyApi = {
 
 export const repositoryApi = {
   list: () => get<{ repositories: Repository[] }>('/repositories'),
-  create: (data: unknown) => post<Repository>('/repositories', data),
-  update: (id: string, data: unknown) => put(`/repositories/${id}`, data),
+  create: (data: RepositoryCreateRequest) => post<Repository>('/repositories', data),
+  update: (id: string, data: RepositoryUpdateRequest) => put(`/repositories/${id}`, data),
   remove: (id: string) => del(`/repositories/${id}`),
-  verify: (id: string) => post(`/repositories/${id}/verify`),
+  verify: (id: string) => post<RepositoryVerifyResponse>(`/repositories/${id}/verify`),
 };
 
 export const jobApi = {
   list: () => get<{ jobs: BackupJob[] }>('/jobs'),
-  create: (data: unknown) => post<BackupJob>('/jobs', data),
-  update: (id: string, data: unknown) => put(`/jobs/${id}`, data),
+  create: (data: JobCreateRequest) => post<BackupJob>('/jobs', data),
+  update: (id: string, data: JobUpdateRequest) => put(`/jobs/${id}`, data),
   trigger: (id: string) => post(`/jobs/${id}/trigger`),
 };
 
@@ -96,4 +100,27 @@ export const orgApi = {
 
 export const upgradeApi = {
   agents: (data: unknown) => post('/upgrade/agents', data),
+};
+
+export const badouRepoApi = {
+  list: () => get<{ repositories: BadouRepository[] }>('/badou/repositories'),
+  create: (data: BadouCreateRepoRequest) => post<BadouRepository>('/badou/repositories', data),
+  get: (id: string) => get<BadouRepository>(`/badou/repositories/${id}`),
+  update: (id: string, data: unknown) => put(`/badou/repositories/${id}`, data),
+  remove: (id: string) => del(`/badou/repositories/${id}`),
+  setImmutable: (id: string, retentionDays: number) => post(`/badou/repositories/${id}/immutable`, { retention_days: retentionDays }),
+  listVersions: (id: string) => get<{ versions: BadouVersion[] }>(`/badou/repositories/${id}/versions`),
+  getVersion: (id: string, vid: string) => get<BadouVersion>(`/badou/repositories/${id}/versions/${vid}`),
+  deleteVersion: (id: string, vid: string) => del(`/badou/repositories/${id}/versions/${vid}`),
+  verify: (id: string, level?: string) => post<BadouVerifyResult>(`/badou/repositories/${id}/verify`, { level: level || 'full' }),
+  triggerGC: (id: string) => post<BadouGCReport>(`/badou/repositories/${id}/gc`),
+  getGCReport: (id: string) => get<BadouGCReport>(`/badou/repositories/${id}/gc/report`),
+};
+
+export const badouClusterApi = {
+  listNodes: () => get<{ nodes: BadouNode[] }>('/badou/cluster/nodes'),
+  addNode: (data: { node_address: string; node_port?: number; node_role?: string; disk_capacity_bytes?: number }) => post<BadouNode>('/badou/cluster/nodes', data),
+  removeNode: (id: string) => del(`/badou/cluster/nodes/${id}`),
+  health: () => get<BadouClusterHealth>('/badou/cluster/health'),
+  expandCapacity: (data: { node_id: string; additional_bytes: number }) => post('/badou/cluster/capacity', data),
 };

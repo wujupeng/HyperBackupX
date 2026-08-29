@@ -189,6 +189,7 @@ impl IntegrityVerifier {
                 chunk_index_hash: manifest.hashes.chunk_index_hash,
                 repo_hash: [0u8; 32],
             },
+            chunk_locations: Default::default(),
         };
         let bytes = serde_json::to_vec(&temp_manifest)
             .map_err(|e| VerifyError::Failed(format!("serialize: {}", e)))?;

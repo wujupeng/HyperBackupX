@@ -16,3 +16,5 @@ pub use backend::webdav::{WebDavCredentials, WebDavRepository};
 pub use backend::sftp::{SftpCredentials, SftpRepository};
 pub use backend::ftp::{FtpCredentials, FtpRepository};
 pub use backend::smb::{SmbCredentials, SmbRepository};
+pub use backend::config::BaDouConfig;
+pub use hbx_badou_provider::{BaDouCredentials, BaDouProvider};

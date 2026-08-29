@@ -293,7 +293,7 @@ mod tests {
         schedule.time_of_day = Some("03:00".to_string());
         let now = Utc::now();
         let next = Scheduler::compute_next_run(&schedule, now).unwrap();
-        assert!(next > now || next == now);
+        assert!(next >= now);
     }
 
     #[test]
@@ -334,7 +334,7 @@ mod tests {
         schedule.cron_expression = Some("*/15 * * * *".to_string());
         let now = Utc::now();
         let next = Scheduler::compute_next_run(&schedule, now).unwrap();
-        assert!(next.minute() % 15 == 0);
+        assert!(next.minute().is_multiple_of(15));
     }
 
     #[test]

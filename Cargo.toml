@@ -23,7 +23,12 @@ members = [
     "agent/crates/hbx-restore",
     "agent/crates/hbx-verify",
     "agent/crates/hbx-retention",
+    "agent/crates/hbx-compat-sem",
+    "agent/crates/hbx-compat-repo",
+    "agent/crates/hbx-compat-engine",
+    "agent/crates/hbx-cli",
     "agent/crates/hbx-agent",
+    "agent/crates/hbx-badou-provider",
     "agent/xtask",
     "tests/e2e",
 ]
@@ -58,7 +63,14 @@ hbx-client = { path = "agent/crates/hbx-client" }
 hbx-restore = { path = "agent/crates/hbx-restore" }
 hbx-verify = { path = "agent/crates/hbx-verify" }
 hbx-retention = { path = "agent/crates/hbx-retention" }
+hbx-compat-sem = { path = "agent/crates/hbx-compat-sem" }
+hbx-compat-repo = { path = "agent/crates/hbx-compat-repo" }
+hbx-compat-engine = { path = "agent/crates/hbx-compat-engine" }
+hbx-cli = { path = "agent/crates/hbx-cli" }
 hbx-agent = { path = "agent/crates/hbx-agent" }
+hbx-badou-provider = { path = "agent/crates/hbx-badou-provider" }
+badou-hbop-client = { path = "badou/crates/badou-hbop-client" }
+badou-proto = { path = "badou/crates/badou-proto" }
 
 tokio = { version = "1.42", features = ["full"] }
 tokio-stream = "0.1"
@@ -95,6 +107,13 @@ ureq = { version = "2.12", features = ["tls"] }
 hmac = "0.12"
 base64 = "0.22"
 url = "2.5"
+
+# gRPC / Protobuf (for badou cross-workspace deps)
+tonic = { version = "0.12", features = ["tls"] }
+prost = "0.13"
+prost-types = "0.13"
+tonic-build = "0.12"
+protoc-bin-vendored = "3.0"
 
 
 [profile.release]

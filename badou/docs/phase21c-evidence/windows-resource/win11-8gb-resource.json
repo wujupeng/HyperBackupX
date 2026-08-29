@@ -1,0 +1,63 @@
+{
+  "test_group": "Win11-8GB",
+  "windows_native": true,
+  "remote_driven": true,
+  "ssh_tunnel": "192.168.2.3 -> 10.1.8.107 via sshpass",
+  "hostname": "10.1.8.107",
+  "os_version": "Microsoft Windows NT 10.0.26100.0 (Windows 11 24H2)",
+  "ram_mb": 8191,
+  "ram_limit_mb": 4095,
+  "wsl_installed": false,
+  "ssh_connectivity_verified": true,
+  "ssh_connectivity_timestamp": "2026-08-27T18:50Z",
+  "rust_toolchain_available": true,
+  "rust_toolchain_version": "rustc 1.98.0 (stable-x86_64-pc-windows-gnu)",
+  "agent_binary_available": true,
+  "agent_binary_path": "C:\\agent-sim\\target\\release\\badou-agent-sim.exe",
+  "agent_binary_size_bytes": 1196530,
+  "phases_collected": ["idle", "backup", "incremental", "restore"],
+  "results": {
+    "idle": {
+      "duration_sec": 10,
+      "peak_rss_mb": 4.92,
+      "peak_private_mb": 0.68,
+      "cpu_avg_percent": 0.0,
+      "peak_handle_count": 77,
+      "peak_thread_count": 2,
+      "sample_count": 20
+    },
+    "backup": {
+      "duration_sec": 10,
+      "peak_rss_mb": 5.0,
+      "peak_private_mb": 0.75,
+      "cpu_avg_percent": 0.94,
+      "peak_handle_count": 77,
+      "peak_thread_count": 2,
+      "sample_count": 19
+    },
+    "incremental": {
+      "duration_sec": 10,
+      "peak_rss_mb": 4.94,
+      "peak_private_mb": 0.68,
+      "cpu_avg_percent": 0.78,
+      "peak_handle_count": 77,
+      "peak_thread_count": 2,
+      "sample_count": 21
+    },
+    "restore": {
+      "duration_sec": 10,
+      "peak_rss_mb": 5.0,
+      "peak_private_mb": 0.75,
+      "cpu_avg_percent": 0.31,
+      "peak_handle_count": 77,
+      "peak_thread_count": 2,
+      "sample_count": 20
+    }
+  },
+  "peak_rss_all_phases_mb": 5.0,
+  "resource_gate_limit_mb": 4095,
+  "resource_gate_passed": true,
+  "verdict": "PASS",
+  "verdict_reason": "All 4 phases collected on Windows 11 24H2 8GB RAM. Peak RSS 5.0 MB << 4095 MB (RAM x 50%). CPU < 1%. Handles 77, threads 2. Agent binary built natively on Windows with Rust 1.98.0 (GNU toolchain).",
+  "timestamp": "2026-08-27T18:54Z"
+}

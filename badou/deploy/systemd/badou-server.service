@@ -1,0 +1,33 @@
+[Unit]
+Description=BaDou Backup Server (HyperBackup X Native Storage)
+Documentation=https://github.com/hyperbackup/HyperBackupX
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=badou
+Group=badou
+ExecStart=/usr/local/bin/badou-server --config /etc/badou/server.json
+WorkingDirectory=/var/lib/badou
+Restart=on-failure
+RestartSec=5s
+LimitNOFILE=65536
+LimitNPROC=4096
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=badou-server
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/badou /var/log/badou
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+LockPersonality=true
+MemoryDenyWriteExecute=false
+RestrictRealtime=true
+
+[Install]
+WantedBy=multi-user.target

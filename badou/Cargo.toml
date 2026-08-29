@@ -1,0 +1,119 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/badou-proto",
+    "crates/badou-hbop-server",
+    "crates/badou-hbop-client",
+    "crates/badou-engine",
+    "crates/badou-store",
+    "crates/badou-index",
+    "crates/badou-journal",
+    "crates/badou-state",
+    "crates/badou-ops",
+    "crates/badou-gc",
+    "crates/badou-verify",
+    "crates/badou-recovery",
+    "crates/badou-cluster",
+    "crates/badou-health",
+    "crates/badou-server",
+    "crates/badou-cli",
+    "crates/badou-tests",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.96.0"
+license = "MIT"
+repository = "https://github.com/hyperbackupx/hbx"
+
+[workspace.dependencies]
+# Internal crate dependencies (path references to existing agent/ workspace)
+hbx-core = { path = "../agent/crates/hbx-core" }
+hbx-crypto = { path = "../agent/crates/hbx-crypto" }
+hbx-compress = { path = "../agent/crates/hbx-compress" }
+hbx-verify = { path = "../agent/crates/hbx-verify" }
+hbx-journal = { path = "../agent/crates/hbx-journal" }
+hbx-repo = { path = "../agent/crates/hbx-repo" }
+
+# Badou internal crate dependencies
+badou-proto = { path = "crates/badou-proto" }
+badou-hbop-server = { path = "crates/badou-hbop-server" }
+badou-hbop-client = { path = "crates/badou-hbop-client" }
+badou-engine = { path = "crates/badou-engine" }
+badou-store = { path = "crates/badou-store" }
+badou-index = { path = "crates/badou-index" }
+badou-journal = { path = "crates/badou-journal" }
+badou-state = { path = "crates/badou-state" }
+badou-ops = { path = "crates/badou-ops" }
+badou-gc = { path = "crates/badou-gc" }
+badou-verify = { path = "crates/badou-verify" }
+badou-recovery = { path = "crates/badou-recovery" }
+badou-cluster = { path = "crates/badou-cluster" }
+badou-health = { path = "crates/badou-health" }
+
+# External dependencies
+tokio = { version = "1.42", features = ["full"] }
+tokio-stream = "0.1"
+tokio-util = { version = "0.7", features = ["io"] }
+async-trait = "0.1"
+futures = "0.3"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "2.0"
+anyhow = "1.0"
+tracing = "0.1"
+tracing-subscriber = "0.3"
+bytes = "1.9"
+uuid = { version = "1.11", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+blake3 = "1.5"
+sha2 = "0.10"
+parking_lot = "0.12"
+crc32fast = "1.4"
+tempfile = "3.14"
+hex = "0.4"
+proptest = "1.6"
+
+# gRPC / Protobuf
+tonic = { version = "0.12", features = ["tls"] }
+prost = "0.13"
+prost-types = "0.13"
+tonic-build = "0.12"
+protoc-bin-vendored = "3.0"
+
+# Database
+sqlx = { version = "0.8", features = ["runtime-tokio", "postgres", "uuid", "chrono", "json"] }
+
+# LMDB index
+heed = "0.11"
+
+# Raft consensus
+openraft = "0.9"
+
+# CLI
+clap = { version = "4.5", features = ["derive"] }
+
+# HTTP / Tower
+hyper = "1.5"
+tower = "0.5"
+tower-http = { version = "0.6", features = ["trace", "cors"] }
+
+# Misc
+url = "2.5"
+base64 = "0.22"
+rand = "0.8"
+
+# JWT
+hmac = "0.12"
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+strip = true
+panic = "abort"
+
+[profile.dev]
+opt-level = 0
+debug = true

@@ -169,9 +169,14 @@ impl RestoreEngine {
             let mut restore_failed = false;
 
             for chunk_hash in &file_entry.chunks {
-                let location = match repo.find_chunk(chunk_hash) {
-                    Ok(loc) => loc,
-                    Err(_) => chunk_location_from_hash(chunk_hash),
+                let hash_key = hex::encode(chunk_hash.0);
+                let location = if let Some(loc) = manifest.chunk_locations.get(&hash_key) {
+                    loc.clone()
+                } else {
+                    match repo.find_chunk(chunk_hash) {
+                        Ok(loc) => loc,
+                        Err(_) => chunk_location_from_hash(chunk_hash),
+                    }
                 };
                 let encrypted = repo.read_chunk(&location)?;
                 let compressed = self.encryption.decrypt_chunk(&encrypted)?;

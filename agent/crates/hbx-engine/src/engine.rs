@@ -140,6 +140,7 @@ impl BackupEngine {
 
         let mut files: Vec<FileEntry> = Vec::new();
         let mut chunk_refs: Vec<ChunkReference> = Vec::new();
+        let mut chunk_locations: std::collections::HashMap<String, ChunkLocation> = std::collections::HashMap::new();
         let mut data_processed: u64 = 0;
         let mut data_stored: u64 = 0;
         let mut chunk_count: u64 = 0;
@@ -179,6 +180,7 @@ impl BackupEngine {
                     if self.repo.chunk_exists(&hash)? {
                         let location = self.repo.find_chunk(&hash)?;
                         self.dedup.register_new(&hash, &location)?;
+                        chunk_locations.insert(hex::encode(hash.0), location);
                         tracing::debug!(hash = ?hash, "chunk already exists in repo, idempotent skip");
                     } else {
                         tracker.set_state(ExecutionState::Encrypting);
@@ -192,7 +194,10 @@ impl BackupEngine {
                         data_stored += encrypted.ciphertext.len() as u64;
 
                         self.dedup.register_new(&hash, &location)?;
+                        chunk_locations.insert(hex::encode(hash.0), location);
                     }
+                } else if let Some(ref loc) = lookup[0].location {
+                    chunk_locations.insert(hex::encode(hash.0), loc.clone());
                 }
 
                 chunk_count += 1;
@@ -241,6 +246,7 @@ impl BackupEngine {
             BackupType::Full,
             files,
             chunk_refs,
+            chunk_locations,
         )?;
 
         self.repo.write_manifest(&version_id, &manifest)?;
@@ -312,6 +318,7 @@ impl BackupEngine {
 
         let mut changed_files: Vec<FileEntry> = Vec::new();
         let mut changed_chunk_refs: Vec<ChunkReference> = Vec::new();
+        let mut chunk_locations: std::collections::HashMap<String, ChunkLocation> = std::collections::HashMap::new();
         let mut changed_paths: std::collections::HashSet<String> = std::collections::HashSet::new();
         let mut data_processed: u64 = 0;
         let mut data_stored: u64 = 0;
@@ -351,6 +358,7 @@ impl BackupEngine {
                     if self.repo.chunk_exists(&hash)? {
                         let location = self.repo.find_chunk(&hash)?;
                         self.dedup.register_new(&hash, &location)?;
+                        chunk_locations.insert(hex::encode(hash.0), location);
                         tracing::debug!(hash = ?hash, "chunk already exists in repo, idempotent skip");
                     } else {
                         tracker.set_state(ExecutionState::Encrypting);
@@ -364,7 +372,10 @@ impl BackupEngine {
                         data_stored += encrypted.ciphertext.len() as u64;
 
                         self.dedup.register_new(&hash, &location)?;
+                        chunk_locations.insert(hex::encode(hash.0), location);
                     }
+                } else if let Some(ref loc) = lookup[0].location {
+                    chunk_locations.insert(hex::encode(hash.0), loc.clone());
                 }
 
                 chunk_count += 1;
@@ -420,6 +431,10 @@ impl BackupEngine {
         all_files.extend(changed_files);
         all_chunk_refs.extend(changed_chunk_refs);
 
+        for (k, v) in &prev_manifest.chunk_locations {
+            chunk_locations.entry(k.clone()).or_insert(v.clone());
+        }
+
         tracker.set_state(ExecutionState::Committing);
         self.dedup.add_references(&all_chunk_refs)?;
 
@@ -430,6 +445,7 @@ impl BackupEngine {
             BackupType::Incremental,
             all_files,
             all_chunk_refs,
+            chunk_locations,
         )?;
 
         self.repo.write_manifest(&version_id, &manifest)?;
@@ -518,6 +534,7 @@ impl BackupEngine {
 
         let mut files: Vec<FileEntry> = Vec::new();
         let mut chunk_refs: Vec<ChunkReference> = Vec::new();
+        let mut chunk_locations: std::collections::HashMap<String, ChunkLocation> = std::collections::HashMap::new();
         let mut data_processed: u64 = 0;
         let mut data_stored: u64 = 0;
         let mut chunk_count: u64 = 0;
@@ -564,6 +581,7 @@ impl BackupEngine {
                     if self.repo.chunk_exists(&hash)? {
                         let location = self.repo.find_chunk(&hash)?;
                         self.dedup.register_new(&hash, &location)?;
+                        chunk_locations.insert(hex::encode(hash.0), location);
                     } else {
                         tracker.set_state(ExecutionState::Encrypting);
                         let compressed = self.compressor.compress(&chunk.data)?;
@@ -576,7 +594,10 @@ impl BackupEngine {
                         data_stored += encrypted.ciphertext.len() as u64;
 
                         self.dedup.register_new(&hash, &location)?;
+                        chunk_locations.insert(hex::encode(hash.0), location);
                     }
+                } else if let Some(ref loc) = lookup[0].location {
+                    chunk_locations.insert(hex::encode(hash.0), loc.clone());
                 }
 
                 chunk_count += 1;
@@ -631,6 +652,7 @@ impl BackupEngine {
             BackupType::Full,
             files,
             chunk_refs,
+            chunk_locations,
         )?;
 
         self.repo.write_manifest(&version_id, &manifest)?;
@@ -708,6 +730,7 @@ impl BackupEngine {
 
         let mut files: Vec<FileEntry> = Vec::new();
         let mut chunk_refs: Vec<ChunkReference> = Vec::new();
+        let mut chunk_locations: std::collections::HashMap<String, ChunkLocation> = std::collections::HashMap::new();
         let mut data_processed: u64 = 0;
         let mut data_stored: u64 = 0;
         let mut chunk_count: u64 = 0;
@@ -746,6 +769,7 @@ impl BackupEngine {
                     if self.repo.chunk_exists(&hash)? {
                         let location = self.repo.find_chunk(&hash)?;
                         self.dedup.register_new(&hash, &location)?;
+                        chunk_locations.insert(hex::encode(hash.0), location);
                     } else {
                         tracker.set_state(ExecutionState::Encrypting);
                         let compressed = self.compressor.compress(&chunk.data)?;
@@ -774,7 +798,10 @@ impl BackupEngine {
                         staging.track(hash.clone(), location.clone());
 
                         self.dedup.register_new(&hash, &location)?;
+                        chunk_locations.insert(hex::encode(hash.0), location);
                     }
+                } else if let Some(ref loc) = lookup[0].location {
+                    chunk_locations.insert(hex::encode(hash.0), loc.clone());
                 }
 
                 chunk_count += 1;
@@ -823,6 +850,7 @@ impl BackupEngine {
             BackupType::Full,
             files,
             chunk_refs,
+            chunk_locations,
         )?;
 
         self.repo.write_manifest(&version_id, &manifest)?;
@@ -892,6 +920,7 @@ impl BackupEngine {
         backup_type: BackupType,
         files: Vec<FileEntry>,
         chunk_refs: Vec<ChunkReference>,
+        chunk_locations: std::collections::HashMap<String, hbx_core::domain::chunk::ChunkLocation>,
     ) -> Result<Manifest, EngineError> {
         let mut file_index_hasher = Sha256::new();
         for file in &files {
@@ -921,6 +950,7 @@ impl BackupEngine {
             files: files.clone(),
             chunk_refs: chunk_refs.clone(),
             hashes: placeholder_hashes.clone(),
+            chunk_locations: chunk_locations.clone(),
         };
         let manifest_bytes = serde_json::to_vec(&temp_manifest)?;
         let manifest_hash: [u8; 32] = {
@@ -949,6 +979,7 @@ impl BackupEngine {
                 chunk_index_hash,
                 repo_hash,
             },
+            chunk_locations,
         })
     }
 }

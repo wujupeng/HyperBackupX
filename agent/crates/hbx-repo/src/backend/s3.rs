@@ -4,7 +4,8 @@ use hbx_core::domain::chunk::{ChunkHash, ChunkLocation};
 use hbx_core::domain::common::{LockOperation, RepoLock, VersionId, VersionSummary};
 use hbx_core::domain::encryption::EncryptedChunk;
 use hbx_core::domain::repository::Manifest;
-use hbx_core::pipeline::{IBackupRepository, RepoError};
+use hbx_core::domain::repository::{ConnectionTestResult, ObjectInfo, ObjectListPage, PageToken};
+use hbx_core::pipeline::{IBackupRepository, IBackupRepositoryExt, RepoError};
 use parking_lot::Mutex;
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
@@ -309,6 +310,123 @@ impl IBackupRepository for S3Repository {
         self.put_object(&key, &data)?;
         Ok(lock)
     }
+}
+
+impl IBackupRepositoryExt for S3Repository {
+    fn test_connection(&self) -> Result<ConnectionTestResult, RepoError> {
+        let url = self.bucket_url();
+        let req = self.sign_request("HEAD", &url, &[], "application/octet-stream");
+        match req {
+            Ok(req) => match req.call() {
+                Ok(_) => Ok(ConnectionTestResult::Passed),
+                Err(ureq::Error::Status(_, _)) => Ok(ConnectionTestResult::Failed),
+                Err(_) => Ok(ConnectionTestResult::Failed),
+            },
+            Err(_) => Ok(ConnectionTestResult::Failed),
+        }
+    }
+
+    fn list_objects(
+        &self,
+        prefix: &str,
+        page_token: Option<&PageToken>,
+        max_keys: u32,
+    ) -> Result<ObjectListPage, RepoError> {
+        let mut url = format!(
+            "{}?list-type=2&prefix={}&max-keys={}",
+            self.bucket_url(),
+            simple_url_encode(prefix),
+            max_keys
+        );
+        if let Some(token) = page_token {
+            url.push_str(&format!("&continuation-token={}", simple_url_encode(&token.0)));
+        }
+
+        let req = self.sign_request("GET", &url, &[], "application/octet-stream")?;
+        let resp = req.call();
+        match resp {
+            Ok(resp) => {
+                let body = resp.into_string().unwrap_or_default();
+                let objects = parse_s3_list_xml(&body);
+                let next_token = extract_continuation_token(&body)
+                    .map(PageToken);
+                Ok(ObjectListPage { objects, next_token })
+            }
+            Err(ureq::Error::Status(code, resp)) => {
+                let body = resp.into_string().unwrap_or_default();
+                Err(RepoError::Failed(format!("S3 ListObjectsV2 failed: {code}: {body}")))
+            }
+            Err(e) => Err(RepoError::Failed(format!("S3 ListObjectsV2 error: {e}"))),
+        }
+    }
+
+    fn delete_object(&self, key: &str) -> Result<(), RepoError> {
+        let url = self.object_url(key);
+        let req = self.sign_request("DELETE", &url, &[], "application/octet-stream")?;
+        let resp = req.call();
+        match resp {
+            Ok(_) => Ok(()),
+            Err(ureq::Error::Status(404, _)) => Ok(()),
+            Err(ureq::Error::Status(code, resp)) => {
+                let body = resp.into_string().unwrap_or_default();
+                Err(RepoError::Failed(format!("S3 DELETE failed: {code}: {body}")))
+            }
+            Err(e) => Err(RepoError::Failed(format!("S3 DELETE error: {e}"))),
+        }
+    }
+}
+
+fn parse_s3_list_xml(xml: &str) -> Vec<ObjectInfo> {
+    let mut objects = Vec::new();
+    let mut pos = 0;
+    while let Some(start) = xml[pos..].find("<Contents>") {
+        let start = pos + start + "<Contents>".len();
+        let end = match xml[start..].find("</Contents>") {
+            Some(e) => start + e,
+            None => break,
+        };
+        let contents = &xml[start..end];
+
+        let key = extract_xml_tag(contents, "Key").unwrap_or_default();
+        let size: u64 = extract_xml_tag(contents, "Size")
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(0);
+        let last_modified = extract_xml_tag(contents, "LastModified")
+            .and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok())
+            .map(|dt| dt.with_timezone(&chrono::Utc))
+            .unwrap_or_else(chrono::Utc::now);
+
+        objects.push(ObjectInfo { key: key.to_string(), size, last_modified });
+        pos = end + "</Contents>".len();
+    }
+    objects
+}
+
+fn extract_xml_tag<'a>(xml: &'a str, tag: &str) -> Option<&'a str> {
+    let open = format!("<{tag}>");
+    let close = format!("</{tag}>");
+    let start = xml.find(&open)? + open.len();
+    let end = xml[start..].find(&close)? + start;
+    Some(&xml[start..end])
+}
+
+fn extract_continuation_token(xml: &str) -> Option<String> {
+    extract_xml_tag(xml, "NextContinuationToken").map(|s| s.to_string())
+}
+
+fn simple_url_encode(s: &str) -> String {
+    let mut result = String::with_capacity(s.len());
+    for byte in s.bytes() {
+        match byte {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' | b'/' => {
+                result.push(byte as char);
+            }
+            _ => {
+                result.push_str(&format!("%{:02X}", byte));
+            }
+        }
+    }
+    result
 }
 
 #[cfg(test)]

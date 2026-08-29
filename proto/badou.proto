@@ -1,0 +1,408 @@
+syntax = "proto3";
+
+package badou.v1;
+
+option go_package = "hbx-control/internal/badou/pb";
+
+import "google/protobuf/timestamp.proto";
+
+// HBOP v1 — HyperBackup Object Protocol
+// 八斗存储桶原生协议，HyperBackup X ↔ 八斗 通信
+
+service BaDouStorage {
+  // ---- Repository API (7 RPC) ----
+  rpc RepositoryCreate(RepositoryCreateRequest) returns (RepositoryCreateResponse);
+  rpc RepositoryOpen(RepositoryOpenRequest) returns (RepositoryOpenResponse);
+  rpc RepositoryClose(RepositoryCloseRequest) returns (RepositoryCloseResponse);
+  rpc RepositoryList(RepositoryListRequest) returns (RepositoryListResponse);
+  rpc RepositoryDelete(RepositoryDeleteRequest) returns (RepositoryDeleteResponse);
+  rpc RepositoryConfigure(RepositoryConfigureRequest) returns (RepositoryConfigureResponse);
+  rpc RepositoryStat(RepositoryStatRequest) returns (RepositoryStatResponse);
+
+  // ---- Chunk API (5 RPC) ----
+  rpc ChunkPut(ChunkPutRequest) returns (ChunkPutResponse);
+  rpc ChunkGet(ChunkGetRequest) returns (ChunkGetResponse);
+  rpc ChunkExists(ChunkExistsRequest) returns (ChunkExistsResponse);
+  rpc ChunkDelete(ChunkDeleteRequest) returns (ChunkDeleteResponse);
+  rpc ChunkBatchPut(stream ChunkPutRequest) returns (ChunkBatchPutResponse);
+
+  // ---- Snapshot API (4 RPC) ----
+  rpc SnapshotCommit(SnapshotCommitRequest) returns (SnapshotCommitResponse);
+  rpc SnapshotGet(SnapshotGetRequest) returns (SnapshotGetResponse);
+  rpc SnapshotList(SnapshotListRequest) returns (SnapshotListResponse);
+  rpc SnapshotDelete(SnapshotDeleteRequest) returns (SnapshotDeleteResponse);
+
+  // ---- Verify API (3 RPC) ----
+  rpc VerifyRepository(VerifyRepositoryRequest) returns (stream VerifyReport);
+  rpc VerifyVersion(VerifyVersionRequest) returns (stream VerifyReport);
+  rpc VerifyChunk(VerifyChunkRequest) returns (VerifyChunkResponse);
+
+  // ---- Recovery API (1 RPC) ----
+  rpc RecoveryOpen(RecoveryOpenRequest) returns (stream RecoveryChunk);
+}
+
+// ---- Error Codes (17 种) ----
+
+enum HbopErrorCode {
+  HBOP_ERROR_UNSPECIFIED = 0;
+  AUTH_FAILED = 1;
+  PERMISSION_DENIED = 2;
+  VERSION_MISMATCH = 3;
+  REPO_NOT_FOUND = 4;
+  REPO_ALREADY_EXISTS = 5;
+  VERSION_NOT_FOUND = 6;
+  SNAPSHOT_NOT_FOUND = 7;
+  CHUNK_NOT_FOUND = 8;
+  MANIFEST_NOT_FOUND = 9;
+  IMMUTABLE_CONFLICT = 10;
+  STATE_CONFLICT = 11;
+  HASH_MISMATCH = 12;
+  CORRUPTED_DATA = 13;
+  DISK_FULL = 14;
+  INTERNAL_ERROR = 15;
+  RATE_LIMITED = 16;
+}
+
+// ---- Repository Status ----
+
+enum RepoStatus {
+  REPO_STATUS_UNSPECIFIED = 0;
+  REPO_ACTIVE = 1;
+  REPO_READONLY = 2;
+  REPO_DELETED = 3;
+  REPO_IMMUTABLE = 4;
+}
+
+// ---- Version Status (10 态) ----
+
+enum VersionStatus {
+  VERSION_STATUS_UNSPECIFIED = 0;
+  CREATED = 1;
+  WRITING = 2;
+  VERIFYING = 3;
+  COMMITTING = 4;
+  SEALED = 5;
+  EXPIRED = 6;
+  DELETED = 7;
+  GC_PENDING = 8;
+  PURGED = 9;
+}
+
+// ---- Snapshot Status (6 态) ----
+
+enum SnapshotStatus {
+  SNAPSHOT_STATUS_UNSPECIFIED = 0;
+  SNAPSHOT_CREATED = 1;
+  SNAPSHOT_WRITING = 2;
+  SNAPSHOT_SEALED = 3;
+  SNAPSHOT_CORRUPT = 4;
+  SNAPSHOT_DELETED = 5;
+}
+
+// ---- Chunk Status (3 态) ----
+
+enum ChunkStatus {
+  CHUNK_STATUS_UNSPECIFIED = 0;
+  CHUNK_ACTIVE = 1;
+  CHUNK_GC_PENDING = 2;
+  CHUNK_PURGED = 3;
+}
+
+// ---- Common Types ----
+
+message ErrorInfo {
+  HbopErrorCode code = 1;
+  string message = 2;
+}
+
+message RepositoryConfig {
+  string name = 1;
+  optional bool immutable = 2;
+  optional google.protobuf.Timestamp immutable_until = 3;
+  map<string, string> options = 4;
+}
+
+message RepositoryInfo {
+  string repo_id = 1;
+  string name = 2;
+  RepoStatus status = 3;
+  optional google.protobuf.Timestamp immutable_until = 4;
+  uint64 version_count = 5;
+  uint64 total_size = 6;
+  uint64 stored_size = 7;
+  google.protobuf.Timestamp created_at = 8;
+}
+
+message SnapshotMeta {
+  string snapshot_id = 1;
+  string version_id = 2;
+  string repo_id = 3;
+  SnapshotStatus status = 4;
+  string source_machine = 5;
+  bytes backup_policy = 6;
+  string file_tree_root = 7;
+  bytes encryption_info = 8;
+  bytes compression_info = 9;
+  uint64 total_size = 10;
+  uint64 stored_size = 11;
+  uint32 file_count = 12;
+  uint32 chunk_count = 13;
+  google.protobuf.Timestamp created_at = 14;
+}
+
+message ManifestData {
+  string manifest_id = 1;
+  string snapshot_id = 2;
+  bytes file_tree = 3;
+  repeated ChunkRef chunk_refs = 4;
+  google.protobuf.Timestamp created_at = 5;
+}
+
+message ChunkRef {
+  string chunk_hash = 1;
+  uint64 offset = 2;
+  uint64 size = 3;
+}
+
+message ChunkData {
+  string chunk_hash = 1;
+  bytes data = 2;
+  uint64 size = 3;
+}
+
+message ChunkInfo {
+  string chunk_hash = 1;
+  uint64 size = 2;
+  uint64 stored_size = 3;
+  uint32 ref_count = 4;
+  ChunkStatus status = 5;
+  google.protobuf.Timestamp created_at = 6;
+}
+
+message VersionInfo {
+  string version_id = 1;
+  string repo_id = 2;
+  string snapshot_id = 3;
+  string parent_version_id = 4;
+  uint64 sequence = 5;
+  VersionStatus status = 6;
+  google.protobuf.Timestamp created_at = 7;
+  optional google.protobuf.Timestamp sealed_at = 8;
+  optional google.protobuf.Timestamp immutable_until = 9;
+}
+
+message VerifyReport {
+  string target_id = 1;
+  enum VerifyLevel {
+    VERIFY_LEVEL_UNSPECIFIED = 0;
+    REPOSITORY = 1;
+    VERSION = 2;
+    CHUNK = 3;
+  }
+  VerifyLevel level = 2;
+  bool passed = 3;
+  uint64 total_checked = 4;
+  uint64 total_failed = 5;
+  repeated string failed_items = 6;
+  google.protobuf.Timestamp checked_at = 7;
+}
+
+message GcReport {
+  string repo_id = 1;
+  uint64 chunks_scanned = 2;
+  uint64 chunks_collected = 3;
+  uint64 bytes_freed = 4;
+  google.protobuf.Timestamp started_at = 5;
+  google.protobuf.Timestamp completed_at = 6;
+}
+
+message RecoveryChunk {
+  string chunk_hash = 1;
+  bytes data = 2;
+  uint64 size = 3;
+  string file_path = 4;
+  uint64 offset = 5;
+}
+
+// ---- Repository API Messages ----
+
+message RepositoryCreateRequest {
+  RepositoryConfig config = 1;
+}
+
+message RepositoryCreateResponse {
+  RepositoryInfo repo = 1;
+}
+
+message RepositoryOpenRequest {
+  string repo_id = 1;
+}
+
+message RepositoryOpenResponse {
+  RepositoryInfo repo = 1;
+}
+
+message RepositoryCloseRequest {
+  string repo_id = 1;
+}
+
+message RepositoryCloseResponse {
+}
+
+message RepositoryListRequest {
+}
+
+message RepositoryListResponse {
+  repeated RepositoryInfo repos = 1;
+}
+
+message RepositoryDeleteRequest {
+  string repo_id = 1;
+  bool force = 2;
+}
+
+message RepositoryDeleteResponse {
+  GcReport gc_report = 1;
+}
+
+message RepositoryConfigureRequest {
+  string repo_id = 1;
+  RepositoryConfig config = 2;
+}
+
+message RepositoryConfigureResponse {
+  RepositoryInfo repo = 1;
+}
+
+message RepositoryStatRequest {
+  string repo_id = 1;
+}
+
+message RepositoryStatResponse {
+  RepositoryInfo repo = 1;
+  uint64 chunk_count = 2;
+  uint64 snapshot_count = 3;
+  uint64 index_size = 4;
+}
+
+// ---- Chunk API Messages ----
+
+message ChunkPutRequest {
+  string repo_id = 1;
+  ChunkData chunk = 2;
+}
+
+message ChunkPutResponse {
+  ChunkInfo info = 1;
+}
+
+message ChunkGetRequest {
+  string repo_id = 1;
+  string chunk_hash = 2;
+}
+
+message ChunkGetResponse {
+  ChunkData chunk = 1;
+}
+
+message ChunkExistsRequest {
+  string repo_id = 1;
+  string chunk_hash = 2;
+}
+
+message ChunkExistsResponse {
+  bool exists = 1;
+  optional ChunkInfo info = 2;
+}
+
+message ChunkDeleteRequest {
+  string repo_id = 1;
+  string chunk_hash = 2;
+}
+
+message ChunkDeleteResponse {
+  bool deleted = 1;
+}
+
+message ChunkBatchPutResponse {
+  repeated ChunkInfo infos = 1;
+  uint32 success_count = 2;
+  uint32 failure_count = 3;
+}
+
+// ---- Snapshot API Messages ----
+
+message SnapshotCommitRequest {
+  string repo_id = 1;
+  string parent_version_id = 2;
+  SnapshotMeta meta = 3;
+  ManifestData manifest = 4;
+  repeated string chunk_hashes = 5;
+}
+
+message SnapshotCommitResponse {
+  VersionInfo version = 1;
+  SnapshotMeta snapshot = 2;
+}
+
+message SnapshotGetRequest {
+  string repo_id = 1;
+  string snapshot_id = 2;
+}
+
+message SnapshotGetResponse {
+  SnapshotMeta meta = 1;
+  ManifestData manifest = 2;
+}
+
+message SnapshotListRequest {
+  string repo_id = 1;
+  optional uint32 limit = 2;
+  optional string cursor = 3;
+}
+
+message SnapshotListResponse {
+  repeated SnapshotMeta snapshots = 1;
+  optional string next_cursor = 2;
+}
+
+message SnapshotDeleteRequest {
+  string repo_id = 1;
+  string snapshot_id = 2;
+}
+
+message SnapshotDeleteResponse {
+  bool deleted = 1;
+}
+
+// ---- Verify API Messages ----
+
+message VerifyRepositoryRequest {
+  string repo_id = 1;
+  bool deep = 2;
+}
+
+message VerifyVersionRequest {
+  string repo_id = 1;
+  string version_id = 2;
+  bool deep = 3;
+}
+
+message VerifyChunkRequest {
+  string repo_id = 1;
+  string chunk_hash = 2;
+}
+
+message VerifyChunkResponse {
+  bool passed = 1;
+  string expected_hash = 2;
+  string actual_hash = 3;
+}
+
+// ---- Recovery API Messages ----
+
+message RecoveryOpenRequest {
+  string repo_id = 1;
+  string version_id = 2;
+  optional string file_path = 3;
+}

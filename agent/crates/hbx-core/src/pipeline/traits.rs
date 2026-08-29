@@ -1,6 +1,7 @@
 use std::time::Duration;
 
 use futures::stream::Stream;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tokio::io::AsyncRead;
 
@@ -12,6 +13,7 @@ use crate::domain::common::{
 };
 use crate::domain::encryption::{DerivedKey, EncryptedChunk, EncryptionProfile};
 use crate::domain::repository::{FileEntry, Manifest};
+use crate::domain::repository::{ConnectionTestResult, ObjectListPage, PageToken};
 use crate::domain::schedule::RetentionPolicy;
 use crate::domain::verify::{VerifyMode, VerifyReport};
 
@@ -302,6 +304,56 @@ pub trait IBackupRepository: Send + Sync {
         operation: LockOperation,
         timeout: Duration,
     ) -> Result<RepoLock, RepoError>;
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ProviderCapability(u32);
+
+impl ProviderCapability {
+    pub const NONE: Self = Self(0);
+    pub const CONTENT_ADDRESSABLE: Self = Self(1);
+    pub const NATIVE_SNAPSHOT: Self = Self(2);
+    pub const REF_COUNT_GC: Self = Self(4);
+    pub const IMMUTABLE_RETENTION: Self = Self(8);
+    pub const FOREVER_INCREMENTAL: Self = Self(16);
+
+    pub fn contains(self, other: Self) -> bool {
+        (self.0 & other.0) == other.0
+    }
+}
+
+impl std::ops::BitOr for ProviderCapability {
+    type Output = Self;
+    fn bitor(self, rhs: Self) -> Self::Output {
+        Self(self.0 | rhs.0)
+    }
+}
+
+pub trait IBackupRepositoryExt: IBackupRepository {
+    fn connect(&self) -> Result<(), RepoError> {
+        Ok(())
+    }
+
+    fn test_connection(&self) -> Result<ConnectionTestResult, RepoError> {
+        Ok(ConnectionTestResult::NotSupported)
+    }
+
+    fn list_objects(
+        &self,
+        _prefix: &str,
+        _page_token: Option<&PageToken>,
+        _max_keys: u32,
+    ) -> Result<ObjectListPage, RepoError> {
+        Err(RepoError::Failed("list_objects not supported".into()))
+    }
+
+    fn delete_object(&self, _key: &str) -> Result<(), RepoError> {
+        Err(RepoError::Failed("delete_object not supported".into()))
+    }
+
+    fn capabilities(&self) -> ProviderCapability {
+        ProviderCapability::NONE
+    }
 }
 
 pub trait IJournal: Send + Sync {

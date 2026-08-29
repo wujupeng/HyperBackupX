@@ -142,7 +142,7 @@ mod tests {
 
     #[test]
     fn test_chunk_size_for_tier() {
-        assert_eq!(chunk_size_for_tier(HardwareTier::Legacy), 1 * 1024 * 1024);
+        assert_eq!(chunk_size_for_tier(HardwareTier::Legacy), 1024 * 1024);
         assert_eq!(chunk_size_for_tier(HardwareTier::Standard), 4 * 1024 * 1024);
         assert_eq!(chunk_size_for_tier(HardwareTier::Modern), 8 * 1024 * 1024);
     }

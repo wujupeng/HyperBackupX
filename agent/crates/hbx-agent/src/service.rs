@@ -4,6 +4,7 @@
 
 use std::ffi::OsStr;
 use std::io;
+#[cfg(windows)]
 use std::os::windows::ffi::OsStrExt;
 use std::ptr;
 
