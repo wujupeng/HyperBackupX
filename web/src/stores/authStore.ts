@@ -16,11 +16,11 @@ interface AuthState {
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
-  token: localStorage.getItem('hbx_token'),
-  username: localStorage.getItem('hbx_username'),
-  displayName: localStorage.getItem('hbx_display_name'),
-  roles: JSON.parse(localStorage.getItem('hbx_roles') || '[]'),
-  isAuthenticated: !!localStorage.getItem('hbx_token'),
+  token: null,
+  username: null,
+  displayName: null,
+  roles: [],
+  isAuthenticated: false,
   loading: false,
   error: null,
 
@@ -28,12 +28,8 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ loading: true, error: null });
     try {
       const res = await authApi.login(req);
-      localStorage.setItem('hbx_token', res.token);
-      localStorage.setItem('hbx_username', res.username);
-      localStorage.setItem('hbx_display_name', res.display_name);
-      localStorage.setItem('hbx_roles', JSON.stringify(res.roles));
       set({
-        token: res.token,
+        token: 'cookie',
         username: res.username,
         displayName: res.display_name,
         roles: res.roles,
@@ -53,10 +49,6 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   logout: () => {
     authApi.logout().catch(() => {});
-    localStorage.removeItem('hbx_token');
-    localStorage.removeItem('hbx_username');
-    localStorage.removeItem('hbx_display_name');
-    localStorage.removeItem('hbx_roles');
     set({
       token: null,
       username: null,

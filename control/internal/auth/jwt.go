@@ -11,9 +11,10 @@ import (
 )
 
 type Claims struct {
-	UserID   string   `json:"user_id"`
-	Username string   `json:"username"`
-	Roles    []string `json:"roles"`
+	UserID             string   `json:"user_id"`
+	Username           string   `json:"username"`
+	Roles              []string `json:"roles"`
+	MustChangePassword bool     `json:"must_change_password,omitempty"`
 	jwt.RegisteredClaims
 }
 
@@ -35,10 +36,15 @@ func NewJWTManager(secret []byte) (*JWTManager, error) {
 }
 
 func (m *JWTManager) Generate(userID uuid.UUID, username string, roles []string) (string, error) {
+	return m.GenerateWithFlags(userID, username, roles, false)
+}
+
+func (m *JWTManager) GenerateWithFlags(userID uuid.UUID, username string, roles []string, mustChangePassword bool) (string, error) {
 	claims := &Claims{
-		UserID:   userID.String(),
-		Username: username,
-		Roles:    roles,
+		UserID:             userID.String(),
+		Username:           username,
+		Roles:              roles,
+		MustChangePassword: mustChangePassword,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(m.expiration)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),

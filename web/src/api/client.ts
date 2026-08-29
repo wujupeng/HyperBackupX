@@ -5,26 +5,31 @@ const BASE_URL = '/api/v1';
 const client: AxiosInstance = axios.create({
   baseURL: BASE_URL,
   timeout: 30000,
+  withCredentials: true,
   headers: { 'Content-Type': 'application/json' },
-});
-
-client.interceptors.request.use((config) => {
-  const token = localStorage.getItem('hbx_token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
 });
 
 client.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('hbx_token');
-      localStorage.removeItem('hbx_user');
-      if (window.location.pathname !== '/login') {
+      const originalRequest = error.config;
+      if (!originalRequest._retry) {
+        originalRequest._retry = true;
+        try {
+          await client.post('/auth/refresh');
+          return client(originalRequest);
+        } catch {
+          if (window.location.pathname !== '/login') {
+            window.location.href = '/login';
+          }
+        }
+      } else if (window.location.pathname !== '/login') {
         window.location.href = '/login';
       }
+    }
+    if (error.response?.status === 403 && error.response.headers['x-hbx-require-password-change']) {
+      window.location.href = '/force-change-password';
     }
     return Promise.reject(error);
   },

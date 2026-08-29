@@ -22,6 +22,7 @@ import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-ro
 import { useAuthStore } from './stores/authStore';
 import Dashboard from './pages/Dashboard';
 import Login from './pages/Login';
+import ForceChangePassword from './pages/ForceChangePassword';
 import BackupWizard from './pages/BackupWizard';
 import RestoreWizard from './pages/RestoreWizard';
 import VersionBrowser from './pages/VersionBrowser';
@@ -131,6 +132,7 @@ function AppLayout() {
             <Route path="/badou/cluster" element={<BadouClusterPage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/login" element={<Login />} />
+            <Route path="/force-change-password" element={<ForceChangePassword />} />
           </Routes>
         </Content>
       </Layout>
