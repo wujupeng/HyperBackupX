@@ -20,6 +20,8 @@ pub struct RegisterResponse {
     pub agent_id: String,
     pub assigned_group: String,
     #[serde(default)]
+    pub agent_token: String,
+    #[serde(default)]
     pub mtls_cert_pem: String,
     #[serde(default)]
     pub mtls_ca_pem: String,
@@ -65,6 +67,7 @@ pub struct TaskResultRequest {
 pub struct ControlClient {
     base_url: String,
     agent_id: Option<String>,
+    agent_token: Option<String>,
     heartbeat_interval: u32,
 }
 
@@ -73,12 +76,17 @@ impl ControlClient {
         Self {
             base_url: base_url.trim_end_matches('/').to_string(),
             agent_id: None,
+            agent_token: None,
             heartbeat_interval: 30,
         }
     }
 
     pub fn agent_id(&self) -> Option<&str> {
         self.agent_id.as_deref()
+    }
+
+    pub fn agent_token(&self) -> Option<&str> {
+        self.agent_token.as_deref()
     }
 
     pub fn heartbeat_interval(&self) -> u32 {
@@ -99,6 +107,7 @@ impl ControlClient {
             serde_json::from_str(&resp_text).context("parse register response")?;
 
         self.agent_id = Some(resp_data.agent_id.clone());
+        self.agent_token = if resp_data.agent_token.is_empty() { None } else { Some(resp_data.agent_token.clone()) };
         self.heartbeat_interval = resp_data.heartbeat_interval_secs;
 
         Ok(resp_data)
@@ -121,8 +130,16 @@ impl ControlClient {
         let url = format!("{}/api/v1/agent/heartbeat", self.base_url);
         let body = serde_json::to_string(&req).context("serialize heartbeat")?;
 
-        let resp = ureq::post(&url)
-            .set("Content-Type", "application/json")
+        let request = ureq::post(&url)
+            .set("Content-Type", "application/json");
+
+        let request = if let Some(token) = &self.agent_token {
+            request.set("Authorization", &format!("Bearer {}", token))
+        } else {
+            request
+        };
+
+        let resp = request
             .send_string(&body)
             .context("heartbeat request failed")?;
 
@@ -137,8 +154,16 @@ impl ControlClient {
         let url = format!("{}/api/v1/agent/task-result", self.base_url);
         let body = serde_json::to_string(req).context("serialize task result")?;
 
-        let resp = ureq::post(&url)
-            .set("Content-Type", "application/json")
+        let request = ureq::post(&url)
+            .set("Content-Type", "application/json");
+
+        let request = if let Some(token) = &self.agent_token {
+            request.set("Authorization", &format!("Bearer {}", token))
+        } else {
+            request
+        };
+
+        let resp = request
             .send_string(&body)
             .context("task-result request failed")?;
 

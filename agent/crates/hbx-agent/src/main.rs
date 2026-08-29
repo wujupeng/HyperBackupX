@@ -5,9 +5,11 @@ use std::sync::Arc;
 use std::time::Duration;
 
 mod control_client;
+mod credential_store;
 mod task_executor;
 
 use control_client::{ControlClient, RegisterRequest};
+use credential_store::{AgentCredentials, CredentialStore};
 use task_executor::{TaskExecutor, TaskSpec};
 
 static RUNNING: AtomicBool = AtomicBool::new(true);
@@ -45,11 +47,30 @@ fn main() -> Result<()> {
         .context("register with Control Plane")?;
 
     tracing::info!(
-        "registered: agent_id={}, group={}, heartbeat={}s",
+        "registered: agent_id={}, group={}, heartbeat={}s, token={}",
         register_resp.agent_id,
         register_resp.assigned_group,
-        register_resp.heartbeat_interval_secs
+        register_resp.heartbeat_interval_secs,
+        if register_resp.agent_token.is_empty() { "none" } else { "received" }
     );
+
+    let cred_store = CredentialStore::new();
+    if !register_resp.agent_token.is_empty() {
+        let cred = AgentCredentials {
+            agent_id: register_resp.agent_id.clone(),
+            agent_token: register_resp.agent_token.clone(),
+            mtls_cert_pem: if register_resp.mtls_cert_pem.is_empty() { None } else { Some(register_resp.mtls_cert_pem.clone()) },
+            expires_at: (std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_secs())
+                .unwrap_or(0)) + 90 * 24 * 3600,
+        };
+        if let Err(e) = cred_store.save(&cred) {
+            tracing::warn!("failed to save credentials: {}", e);
+        } else {
+            tracing::info!("credentials saved to {:?}", cred_store);
+        }
+    }
 
     let agent_id = client.agent_id().unwrap().to_string();
     let executor = TaskExecutor::new(&agent_id);
