@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -17,15 +18,14 @@ import (
 	"hbx-control/internal/compatimport"
 	"hbx-control/internal/hbx"
 	"hbx-control/internal/rbac"
-
 )
 
 type Server struct {
-	pool          *pgxpool.Pool
-	redis         *redis.Client
-	jwtMgr        *auth.JWTManager
-	auditLogger   *audit.Logger
-	ca            *hbx.CA
+	pool           *pgxpool.Pool
+	redis          *redis.Client
+	jwtMgr         *auth.JWTManager
+	auditLogger    *audit.Logger
+	ca             *hbx.CA
 	compatImporter *compatimport.DuplicatiConfigImporter
 }
 
@@ -35,11 +35,11 @@ func NewServer(pool *pgxpool.Pool, redis *redis.Client, jwtMgr *auth.JWTManager,
 		panic("failed to initialize CA: " + err.Error())
 	}
 	return &Server{
-		pool:          pool,
-		redis:         redis,
-		jwtMgr:        jwtMgr,
-		auditLogger:   auditLogger,
-		ca:            ca,
+		pool:           pool,
+		redis:          redis,
+		jwtMgr:         jwtMgr,
+		auditLogger:    auditLogger,
+		ca:             ca,
 		compatImporter: compatimport.NewImporter(compatimport.UnsupportedSkip),
 	}
 }
@@ -156,17 +156,17 @@ func (s *Server) RegisterRoutes(r *gin.Engine) {
 				compatGroup.POST("/golden/execute", s.RBAC(rbac.PermCompatTrigger), s.executeGolden)
 				compatGroup.GET("/golden/report", s.RBAC(rbac.PermCompatRead), s.getGoldenReport)
 				compatGroup.POST("/dual-run", s.RBAC(rbac.PermCompatTrigger), s.triggerDualRun)
-			compatGroup.GET("/dual-run/:id", s.RBAC(rbac.PermCompatRead), s.getDualRunResult)
-			compatGroup.GET("/reports", s.RBAC(rbac.PermCompatRead), s.listTestReports)
+				compatGroup.GET("/dual-run/:id", s.RBAC(rbac.PermCompatRead), s.getDualRunResult)
+				compatGroup.GET("/reports", s.RBAC(rbac.PermCompatRead), s.listTestReports)
 
-			compatGroup.POST("/fuzz/execute", s.RBAC(rbac.PermCompatTrigger), s.executeFuzz)
-			compatGroup.GET("/fuzz/report", s.RBAC(rbac.PermCompatRead), s.getFuzzReport)
-			compatGroup.POST("/chaos/execute", s.RBAC(rbac.PermCompatTrigger), s.executeChaos)
-			compatGroup.GET("/chaos/report", s.RBAC(rbac.PermCompatRead), s.getChaosReport)
+				compatGroup.POST("/fuzz/execute", s.RBAC(rbac.PermCompatTrigger), s.executeFuzz)
+				compatGroup.GET("/fuzz/report", s.RBAC(rbac.PermCompatRead), s.getFuzzReport)
+				compatGroup.POST("/chaos/execute", s.RBAC(rbac.PermCompatTrigger), s.executeChaos)
+				compatGroup.GET("/chaos/report", s.RBAC(rbac.PermCompatRead), s.getChaosReport)
 
-			compatGroup.GET("/acceptance", s.RBAC(rbac.PermCompatRead), s.getAcceptanceReport)
-			compatGroup.POST("/acceptance/trigger", s.RBAC(rbac.PermCompatTrigger), s.triggerAcceptance)
-			compatGroup.POST("/acceptance/sign", s.RBAC(rbac.PermCompatWrite), s.signAcceptance)
+				compatGroup.GET("/acceptance", s.RBAC(rbac.PermCompatRead), s.getAcceptanceReport)
+				compatGroup.POST("/acceptance/trigger", s.RBAC(rbac.PermCompatTrigger), s.triggerAcceptance)
+				compatGroup.POST("/acceptance/sign", s.RBAC(rbac.PermCompatWrite), s.signAcceptance)
 			}
 
 			s.registerBadouRoutes(authed)
@@ -294,13 +294,13 @@ func (s *Server) login(c *gin.Context) {
 	}
 
 	s.auditLogger.Record(ctx, audit.Entry{
-		ActorID:   userID.String(),
-		ActorType: audit.ActorTypeUser,
-		Action:    "login",
+		ActorID:    userID.String(),
+		ActorType:  audit.ActorTypeUser,
+		Action:     "login",
 		TargetType: "auth",
-		TargetID:  userID.String(),
-		Result:    "success",
-		TraceID:   traceID(c),
+		TargetID:   userID.String(),
+		Result:     "success",
+		TraceID:    traceID(c),
 	})
 
 	c.JSON(http.StatusOK, gin.H{
@@ -339,13 +339,13 @@ func (s *Server) listDevices(c *gin.Context) {
 		var lastHB, registeredAt time.Time
 		rows.Scan(&id, &hostname, &osType, &agentVer, &status, &lastHB, &registeredAt)
 		devices = append(devices, gin.H{
-			"device_id":        id,
-			"hostname":         hostname,
-			"os_type":          osType,
-			"agent_version":    agentVer,
-			"status":           status,
-			"last_heartbeat":   lastHB,
-			"registered_at":    registeredAt,
+			"device_id":      id,
+			"hostname":       hostname,
+			"os_type":        osType,
+			"agent_version":  agentVer,
+			"status":         status,
+			"last_heartbeat": lastHB,
+			"registered_at":  registeredAt,
 		})
 	}
 	if devices == nil {
@@ -607,7 +607,84 @@ func (s *Server) updateJob(c *gin.Context) {
 
 func (s *Server) triggerJob(c *gin.Context) {
 	id := c.Param("id")
-	c.JSON(http.StatusAccepted, gin.H{"job_id": id, "status": "triggered"})
+	jobUUID, err := uuid.Parse(id)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid job id"})
+		return
+	}
+
+	var deviceID uuid.UUID
+	var name, status string
+	var sourceConfig, destConfig []byte
+	err = s.pool.QueryRow(c.Request.Context(), `
+		SELECT device_id, name, status, source_config::text, destination_config::text
+		FROM backup_jobs WHERE job_id = $1
+	`, jobUUID).Scan(&deviceID, &name, &status, &sourceConfig, &destConfig)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "job not found"})
+		return
+	}
+
+	var agentID uuid.UUID
+	err = s.pool.QueryRow(c.Request.Context(), `
+		SELECT device_id FROM devices WHERE status IN ('online', 'idle')
+		ORDER BY last_heartbeat_at DESC LIMIT 1
+	`).Scan(&agentID)
+	if err != nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "no available agent"})
+		return
+	}
+
+	var sourcePath, repoID, badouGrpc, taskType, targetPath string
+	taskType = "backup"
+	var sourceMap map[string]interface{}
+	if json.Unmarshal(sourceConfig, &sourceMap) == nil {
+		if v, ok := sourceMap["source_path"].(string); ok {
+			sourcePath = v
+		}
+		if v, ok := sourceMap["repo_id"].(string); ok {
+			repoID = v
+		}
+		if v, ok := sourceMap["backup_type"].(string); ok && v != "" {
+			taskType = v
+		}
+		if v, ok := sourceMap["target_path"].(string); ok {
+			targetPath = v
+		}
+	}
+	if repoID == "" {
+		repoID = "default"
+	}
+	badouGrpc = os.Getenv("HBX_BADOU_GRPC_ENDPOINT")
+	if badouGrpc == "" {
+		badouGrpc = "http://127.0.0.1:9090"
+	}
+
+	taskID := uuid.New()
+	spec := map[string]interface{}{
+		"task_id":             taskID.String(),
+		"job_id":              id,
+		"repo_id":             repoID,
+		"task_type":           taskType,
+		"source_path":         sourcePath,
+		"target_path":         targetPath,
+		"badou_grpc_endpoint": badouGrpc,
+	}
+	specJSON, _ := json.Marshal(spec)
+
+	_, err = s.pool.Exec(c.Request.Context(), `
+		INSERT INTO pending_tasks (task_id, agent_id, job_id, repo_id, task_type, source_path, badou_grpc_endpoint, spec_json, status)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending')
+	`, taskID, agentID, id, repoID, taskType, sourcePath, badouGrpc, specJSON)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "queue task failed: " + err.Error()})
+		return
+	}
+
+	claims := getClaims(c)
+	s.auditLogger.Record(c.Request.Context(), auditEntry(claims, "job_trigger", "backup_job", id, "triggered", traceID(c)))
+
+	c.JSON(http.StatusAccepted, gin.H{"job_id": id, "task_id": taskID, "agent_id": agentID, "status": "triggered"})
 }
 
 func (s *Server) listVersions(c *gin.Context) {
@@ -729,11 +806,11 @@ func (s *Server) dashboard(c *gin.Context) {
 	s.pool.QueryRow(ctx, "SELECT COUNT(*) FROM alerts WHERE acknowledged = FALSE AND suppressed = FALSE").Scan(&activeAlerts)
 
 	c.JSON(http.StatusOK, gin.H{
-		"devices":          gin.H{"total": totalDevices, "online": onlineDevices},
-		"jobs":             gin.H{"total": totalJobs, "active": activeJobs},
-		"versions":         gin.H{"total": totalVersions, "total_size": totalSize},
-		"active_alerts":    activeAlerts,
-		"timestamp":        time.Now().UTC(),
+		"devices":       gin.H{"total": totalDevices, "online": onlineDevices},
+		"jobs":          gin.H{"total": totalJobs, "active": activeJobs},
+		"versions":      gin.H{"total": totalVersions, "total_size": totalSize},
+		"active_alerts": activeAlerts,
+		"timestamp":     time.Now().UTC(),
 	})
 }
 

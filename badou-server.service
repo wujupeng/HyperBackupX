@@ -1,0 +1,15 @@
+[Unit]
+Description=Badou Storage Server
+After=network.target
+
+[Service]
+Type=simple
+User=debian
+ExecStart=/home/debian/HyperBackupX/badou/target/release/badou-server /tmp/badou-server.json
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,24 @@
+[Unit]
+Description=HyperBackup X Control Plane
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=debian
+WorkingDirectory=/home/debian/HyperBackupX/control
+Environment=HBX_CONTROL_ADDR=:8080
+Environment=HBX_BADOU_ENDPOINT=http://127.0.0.1:9092
+Environment=HBX_PG_PORT=5433
+Environment=HBX_PG_HOST=127.0.0.1
+Environment=HBX_PG_DB=hbx
+Environment=HBX_PG_USER=hbx
+Environment=HBX_PG_PASSWORD=hbx
+ExecStart=/home/debian/HyperBackupX/control/control-server
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

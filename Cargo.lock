@@ -675,19 +675,27 @@ checksum = "ed5909b6e89a2db4456e54cd5f673791d7eca6732202bbf2a9cc504fe2f9b84a"
 name = "hbx-agent"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
+ "blake3",
  "chrono",
+ "hbx-badou-provider",
  "hbx-client",
  "hbx-core",
  "hbx-engine",
  "hbx-hardware",
  "hbx-journal",
+ "hbx-restore",
  "hbx-scheduler",
+ "hex",
  "serde",
  "serde_json",
  "sysinfo",
  "thiserror",
  "tracing",
+ "tracing-subscriber",
+ "ureq",
  "uuid",
+ "walkdir",
 ]
 
 [[package]]

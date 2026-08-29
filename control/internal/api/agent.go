@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -73,11 +74,11 @@ func (s *Server) agentRegister(c *gin.Context) {
 		ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 		defer cancel()
 		_, err := s.pool.Exec(ctx,
-			`INSERT INTO devices (id, hostname, os_version, agent_version, hardware_tier, status, created_at, last_seen_at)
+			`INSERT INTO devices (device_id, hostname, os_type, agent_version, hardware_profile, status, registered_at, last_heartbeat_at)
 			 VALUES ($1, $2, $3, $4, $5, 'online', NOW(), NOW())`,
-			agentID, req.Hostname, req.OsVersion, req.AgentVersion, req.Tier)
+			agentID, req.Hostname, req.OsVersion, req.AgentVersion, fmt.Sprintf(`{"tier":"%s"}`, req.Tier))
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to register device"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to register device: " + err.Error()})
 			return
 		}
 	}
@@ -99,9 +100,9 @@ type heartbeatRequest struct {
 }
 
 type heartbeatResponse struct {
-	ServerTime       time.Time `json:"server_time"`
+	ServerTime      time.Time `json:"server_time"`
 	PendingCommands []string  `json:"pending_commands"`
-	ConfigUpdated    bool      `json:"config_updated"`
+	ConfigUpdated   bool      `json:"config_updated"`
 }
 
 func (s *Server) agentHeartbeat(c *gin.Context) {
@@ -115,32 +116,58 @@ func (s *Server) agentHeartbeat(c *gin.Context) {
 		ctx, cancel := context.WithTimeout(c.Request.Context(), 3*time.Second)
 		defer cancel()
 		s.pool.Exec(ctx,
-			`UPDATE devices SET last_seen_at = NOW(), status = $2 WHERE id = $1`,
+			`UPDATE devices SET last_heartbeat_at = NOW(), status = $2 WHERE device_id = $1`,
 			req.AgentID, req.Status)
 	}
 
+	var pendingCommands []string
+	if s.pool != nil {
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+		defer cancel()
+		rows, err := s.pool.Query(ctx,
+			`UPDATE pending_tasks SET status = 'dispatched', dispatched_at = NOW()
+			 WHERE task_id IN (
+				 SELECT task_id FROM pending_tasks
+				 WHERE (agent_id = $1 OR agent_id IS NULL) AND status = 'pending'
+				 ORDER BY created_at LIMIT 5
+			 )
+			 RETURNING spec_json::text`,
+			req.AgentID)
+		if err == nil {
+			defer rows.Close()
+			for rows.Next() {
+				var cmd string
+				rows.Scan(&cmd)
+				pendingCommands = append(pendingCommands, cmd)
+			}
+		}
+	}
+	if pendingCommands == nil {
+		pendingCommands = []string{}
+	}
+
 	c.JSON(http.StatusOK, heartbeatResponse{
-		ServerTime:       time.Now().UTC(),
-		PendingCommands:  []string{},
-		ConfigUpdated:    false,
+		ServerTime:      time.Now().UTC(),
+		PendingCommands: pendingCommands,
+		ConfigUpdated:   false,
 	})
 }
 
 type taskResultRequest struct {
-	TaskID        string     `json:"task_id"`
-	AgentID       string     `json:"agent_id"`
-	JobID         string     `json:"job_id"`
-	Status        string     `json:"status"`
-	StartedAt     time.Time  `json:"started_at"`
-	CompletedAt   *time.Time `json:"completed_at"`
-	BytesProcessed uint64    `json:"bytes_processed"`
-	BytesStored    uint64    `json:"bytes_stored"`
-	FileCount     uint32     `json:"file_count"`
-	ChunkCount    uint32     `json:"chunk_count"`
-	DedupRatio    float64    `json:"dedup_ratio"`
-	VersionID     *string    `json:"version_id"`
-	ErrorMessage  *string    `json:"error_message"`
-	TraceID       string     `json:"trace_id"`
+	TaskID         string     `json:"task_id"`
+	AgentID        string     `json:"agent_id"`
+	JobID          string     `json:"job_id"`
+	Status         string     `json:"status"`
+	StartedAt      time.Time  `json:"started_at"`
+	CompletedAt    *time.Time `json:"completed_at"`
+	BytesProcessed uint64     `json:"bytes_processed"`
+	BytesStored    uint64     `json:"bytes_stored"`
+	FileCount      uint32     `json:"file_count"`
+	ChunkCount     uint32     `json:"chunk_count"`
+	DedupRatio     float64    `json:"dedup_ratio"`
+	VersionID      *string    `json:"version_id"`
+	ErrorMessage   *string    `json:"error_message"`
+	TraceID        string     `json:"trace_id"`
 }
 
 func (s *Server) agentTaskResult(c *gin.Context) {
@@ -166,7 +193,7 @@ func (s *Server) agentTaskResult(c *gin.Context) {
 }
 
 type fetchPolicyRequest struct {
-	AgentID             string `json:"agent_id"`
+	AgentID              string `json:"agent_id"`
 	CurrentPolicyVersion string `json:"current_policy_version"`
 }
 
@@ -231,9 +258,9 @@ func (s *Server) agentLog(c *gin.Context) {
 		ctx, cancel := context.WithTimeout(c.Request.Context(), 3*time.Second)
 		defer cancel()
 		s.pool.Exec(ctx,
-			`INSERT INTO agent_logs (id, agent_id, timestamp, level, message, trace_id, created_at)
-			 VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
-			uuid.New().String(), req.AgentID, req.Timestamp, req.Level, req.Message, req.TraceID)
+			`INSERT INTO agent_logs (device_id, timestamp, level, component, message, trace_id, fields)
+			 VALUES ($1, $2, $3, 'agent', $4, $5, '{}'::jsonb)`,
+			req.AgentID, req.Timestamp, req.Level, req.Message, req.TraceID)
 	}
 
 	c.JSON(http.StatusOK, gin.H{"accepted": true})

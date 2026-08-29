@@ -1,6 +1,10 @@
 package api
 
 import (
+	"log/slog"
+	"os"
+	"time"
+
 	"github.com/gin-gonic/gin"
 
 	"hbx-control/internal/badou/handler"
@@ -11,7 +15,24 @@ import (
 
 func (s *Server) initBadouHandler() *handler.Handler {
 	repo := repository.NewBadouRepo(s.pool)
-	svc := service.NewService(repo, service.NewStubClient())
+
+	var client service.BadouClient
+	if endpoint := os.Getenv("HBX_BADOU_ENDPOINT"); endpoint != "" {
+		token := os.Getenv("HBX_BADOU_TOKEN")
+		timeout := 10 * time.Second
+		if v := os.Getenv("HBX_BADOU_TIMEOUT"); v != "" {
+			if d, err := time.ParseDuration(v); err == nil {
+				timeout = d
+			}
+		}
+		client = service.NewRealBadouClient(endpoint, token, timeout)
+		slog.Info("badou client initialized", "endpoint", endpoint, "mode", "real")
+	} else {
+		client = service.NewStubClient()
+		slog.Warn("badou client using stub (no HBX_BADOU_ENDPOINT set)", "mode", "stub")
+	}
+
+	svc := service.NewService(repo, client)
 	auditFwd := service.NewAuditForwarder(s.auditLogger)
 	return handler.NewHandler(svc, auditFwd)
 }

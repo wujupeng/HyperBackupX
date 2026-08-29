@@ -24,6 +24,24 @@ pub fn run(args: &Args, client: &ApiClient) -> Result<()> {
     }
 }
 
+fn resolve_repo_id(client: &ApiClient, repo_id_or_name: &str) -> Result<String> {
+    if repo_id_or_name.parse::<uuid::Uuid>().is_ok() {
+        return Ok(repo_id_or_name.to_string());
+    }
+    let resp = client.get("/api/v1/badou/repositories")?;
+    let parsed: serde_json::Value = serde_json::from_str(&resp).context("failed to parse repos response")?;
+    let repos = parsed.get("repositories").and_then(|v| v.as_array())
+        .ok_or_else(|| anyhow::anyhow!("no repositories field in response"))?;
+    for repo in repos {
+        let name = repo.get("name").and_then(|v| v.as_str()).unwrap_or("");
+        let rid = repo.get("repo_id").and_then(|v| v.as_str()).unwrap_or("");
+        if name == repo_id_or_name {
+            return Ok(rid.to_string());
+        }
+    }
+    Err(anyhow::anyhow!("repo '{}' not found (neither UUID nor matching name)", repo_id_or_name))
+}
+
 fn backup(args: &Args, client: &ApiClient) -> Result<()> {
     let job_id = args
         .positional
@@ -42,7 +60,7 @@ fn backup(args: &Args, client: &ApiClient) -> Result<()> {
     })
     .to_string();
 
-    let resp = client.post("/api/v1/compat/jobs/{job_id}/trigger", &body);
+    let resp = client.post(&format!("/api/v1/compat/jobs/{}/trigger", job_id), &body);
     match resp {
         Ok(text) => {
             println!("Backup triggered successfully: {}", text);
@@ -95,22 +113,24 @@ fn restore(args: &Args, client: &ApiClient) -> Result<()> {
 }
 
 fn list(args: &Args, client: &ApiClient) -> Result<()> {
-    let repo_id = args
+    let repo_id_or_name = args
         .positional
         .get(1)
         .ok_or_else(|| anyhow::anyhow!("missing <repo-id> argument\nusage: hbx-cli compat list <repo-id> [--versions] [--files <version>]"))?;
 
+    let repo_id = resolve_repo_id(client, repo_id_or_name)?;
+
     if args.has("versions") {
-        println!("Listing compat versions for repo {}", repo_id);
-        let resp = client.get("/api/v1/versions")?;
+        println!("Listing compat versions for repo {} (UUID: {})", repo_id_or_name, repo_id);
+        let resp = client.get(&format!("/api/v1/badou/repositories/{}/versions", repo_id))?;
         println!("{}", resp);
     } else if let Some(version) = args.get("files") {
         println!("Listing files for version {}", version);
-        let path = format!("/api/v1/versions/{}/files", version);
+        let path = format!("/api/v1/badou/repositories/{}/versions/{}/files", repo_id, version);
         let resp = client.get(&path)?;
         println!("{}", resp);
     } else {
-        println!("Listing compat jobs for repo {}", repo_id);
+        println!("Listing compat jobs for repo {} (UUID: {})", repo_id_or_name, repo_id);
         let resp = client.get("/api/v1/compat/jobs")?;
         println!("{}", resp);
     }
@@ -137,15 +157,16 @@ fn delete(args: &Args, client: &ApiClient) -> Result<()> {
 }
 
 fn verify(args: &Args, client: &ApiClient) -> Result<()> {
-    let repo_id = args
+    let repo_id_or_name = args
         .positional
         .get(1)
         .ok_or_else(|| anyhow::anyhow!("missing <repo-id> argument\nusage: hbx-cli compat verify <repo-id> [--mode <Quick|Full|Deep>]"))?;
 
     let mode = args.get_or("mode", "Quick");
-    println!("Verifying compat repo {} (mode: {})", repo_id, mode);
+    let repo_id = resolve_repo_id(client, repo_id_or_name)?;
+    println!("Verifying compat repo {} (UUID: {}, mode: {})", repo_id_or_name, repo_id, mode);
 
-    let path = format!("/api/v1/compat/repositories/{}/self-check", repo_id);
+    let path = format!("/api/v1/badou/repositories/{}/verify", repo_id);
     let resp = client.post(&path, "{}")?;
     println!("{}", resp);
     Ok(())

@@ -1,0 +1,16 @@
+[Unit]
+Description=HyperBackup X Agent
+After=network.target hbx-control.service badou-server.service
+Wants=hbx-control.service badou-server.service
+
+[Service]
+Type=simple
+User=debian
+ExecStart=/home/debian/HyperBackupX/start_hbx_agent.sh
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
