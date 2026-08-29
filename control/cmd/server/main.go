@@ -14,13 +14,27 @@ import (
 	"hbx-control/internal/api"
 	"hbx-control/internal/audit"
 	"hbx-control/internal/auth"
+	"hbx-control/internal/secret"
 	"hbx-control/internal/storage"
 )
 
 func main() {
 	slog.Info("starting HBX Control Plane")
 
-	addr := ":8080"
+	secretLoader := secret.NewSecretLoader()
+	secretBundle, err := secretLoader.Load()
+	if err != nil {
+		slog.Error("failed to load secrets", "error", err)
+		os.Exit(1)
+	}
+	defer secretBundle.Zeroize()
+	if err := secret.ValidateStrength(secretBundle); err != nil {
+		slog.Error("secret strength validation failed", "error", err)
+		os.Exit(1)
+	}
+	slog.Info("secrets loaded and validated")
+
+	addr := "127.0.0.1:8080"
 	if v := os.Getenv("HBX_CONTROL_ADDR"); v != "" {
 		addr = v
 	}
@@ -34,6 +48,11 @@ func main() {
 	defer cancel()
 
 	pgCfg := storage.DefaultPostgresConfig()
+	pgCfg.Password = string(secretBundle.DBPassword.Bytes())
+	pgCfg.SSLMode = "require"
+	if v := os.Getenv("HBX_PG_SSLMODE"); v != "" {
+		pgCfg.SSLMode = v
+	}
 	pool, err := storage.NewPostgresPool(ctx, pgCfg)
 	if err != nil {
 		slog.Warn("postgres unavailable, running without DB", "error", err)
@@ -51,7 +70,11 @@ func main() {
 		slog.Warn("redis unavailable, running without cache", "error", err)
 	}
 
-	jwtMgr := auth.NewJWTManager()
+	jwtMgr, err := auth.NewJWTManager(secretBundle.JWTSecret.Bytes())
+	if err != nil {
+		slog.Error("failed to create JWT manager", "error", err)
+		os.Exit(1)
+	}
 	auditLogger := audit.NewLogger(pool)
 	apiServer := api.NewServer(pool, redisClient, jwtMgr, auditLogger)
 

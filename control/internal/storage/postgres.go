@@ -32,11 +32,11 @@ func (c PostgresConfig) DSN() string {
 func DefaultPostgresConfig() PostgresConfig {
 	cfg := PostgresConfig{
 		Host:     "localhost",
-		Port:     5432,
+		Port:     5433,
 		Database: "hbx",
 		User:     "hbx",
-		Password: "hbx",
-		SSLMode:  "disable",
+		Password: "",
+		SSLMode:  "require",
 	}
 	if v := os.Getenv("HBX_PG_HOST"); v != "" {
 		cfg.Host = v

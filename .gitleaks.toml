@@ -1,0 +1,16 @@
+title = "HyperBackup X Secret Scan"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "hbx-test-secrets"
+description = "HBX known test secrets"
+regex = '''(phase21-test|hbx-dev-secret-change-in-production|admin123|hbx_dev_pwd|hbx-dev-secret)'''
+
+[[allowlist]]
+description = "Allow test fixtures"
+paths = [
+    '''control/internal/secret/loader_test\.go''',
+    '''control/internal/auth/jwt_test\.go''',
+]

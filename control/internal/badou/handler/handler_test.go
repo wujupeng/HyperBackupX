@@ -35,7 +35,7 @@ func newTestRouter() (*gin.Engine, *Handler) {
 }
 
 func authMiddleware() gin.HandlerFunc {
-	jwtMgr := auth.NewJWTManager()
+	jwtMgr, _ := auth.NewJWTManager([]byte("test-secret-that-is-long-enough-32+bytes!"))
 	return func(c *gin.Context) {
 		token, _ := jwtMgr.Generate(uuid.New(), "testuser", []string{"*"})
 		c.Set("hbx.claims", &auth.Claims{

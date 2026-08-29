@@ -56,7 +56,7 @@ func TestTraceIDMiddlewarePreservesExisting(t *testing.T) {
 }
 
 func TestJWTAuthMiddlewareValidToken(t *testing.T) {
-	jwtMgr := auth.NewJWTManager()
+	jwtMgr, _ := auth.NewJWTManager([]byte("test-secret-that-is-long-enough-32+bytes!"))
 	userID := uuid.New()
 	token, _ := jwtMgr.Generate(userID, "testuser", []string{"admin"})
 
@@ -78,7 +78,7 @@ func TestJWTAuthMiddlewareValidToken(t *testing.T) {
 }
 
 func TestJWTAuthMiddlewareMissingHeader(t *testing.T) {
-	jwtMgr := auth.NewJWTManager()
+	jwtMgr, _ := auth.NewJWTManager([]byte("test-secret-that-is-long-enough-32+bytes!"))
 
 	r := gin.New()
 	r.Use(JWTAuthMiddleware(jwtMgr))
@@ -96,7 +96,7 @@ func TestJWTAuthMiddlewareMissingHeader(t *testing.T) {
 }
 
 func TestJWTAuthMiddlewareInvalidToken(t *testing.T) {
-	jwtMgr := auth.NewJWTManager()
+	jwtMgr, _ := auth.NewJWTManager([]byte("test-secret-that-is-long-enough-32+bytes!"))
 
 	r := gin.New()
 	r.Use(JWTAuthMiddleware(jwtMgr))
@@ -115,7 +115,7 @@ func TestJWTAuthMiddlewareInvalidToken(t *testing.T) {
 }
 
 func TestRBACMiddlewareAuthorized(t *testing.T) {
-	jwtMgr := auth.NewJWTManager()
+	jwtMgr, _ := auth.NewJWTManager([]byte("test-secret-that-is-long-enough-32+bytes!"))
 	userID := uuid.New()
 	token, _ := jwtMgr.Generate(userID, "admin_user", []string{"*"})
 
@@ -136,7 +136,7 @@ func TestRBACMiddlewareAuthorized(t *testing.T) {
 }
 
 func TestRBACMiddlewareForbidden(t *testing.T) {
-	jwtMgr := auth.NewJWTManager()
+	jwtMgr, _ := auth.NewJWTManager([]byte("test-secret-that-is-long-enough-32+bytes!"))
 	userID := uuid.New()
 	token, _ := jwtMgr.Generate(userID, "auditor_user", []string{"audit:read"})
 

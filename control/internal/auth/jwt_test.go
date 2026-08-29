@@ -8,7 +8,10 @@ import (
 )
 
 func TestJWTGenerateAndVerify(t *testing.T) {
-	mgr := NewJWTManager()
+	mgr, err := NewJWTManager([]byte("test-secret-that-is-long-enough-32+bytes!"))
+	if err != nil {
+		t.Fatalf("NewJWTManager: %v", err)
+	}
 	userID := uuid.New()
 	roles := []string{"admin", "operator"}
 
@@ -36,7 +39,7 @@ func TestJWTGenerateAndVerify(t *testing.T) {
 }
 
 func TestJWTVerifyInvalidToken(t *testing.T) {
-	mgr := NewJWTManager()
+	mgr, _ := NewJWTManager([]byte("test-secret-that-is-long-enough-32+bytes!"))
 
 	if _, err := mgr.Verify("invalid.token.here"); err == nil {
 		t.Fatal("should fail on invalid token")
@@ -74,5 +77,19 @@ func TestJWTVerifyWrongSecret(t *testing.T) {
 	token, _ := mgr1.Generate(uuid.New(), "user", []string{})
 	if _, err := mgr2.Verify(token); err == nil {
 		t.Fatal("should fail with wrong secret")
+	}
+}
+
+func TestNewJWTManagerMissingSecret(t *testing.T) {
+	_, err := NewJWTManager(nil)
+	if err != ErrJWTSecretNotConfigured {
+		t.Fatalf("expected ErrJWTSecretNotConfigured, got %v", err)
+	}
+}
+
+func TestNewJWTManagerWeakSecret(t *testing.T) {
+	_, err := NewJWTManager([]byte("too-short"))
+	if err != ErrJWTSecretNotConfigured {
+		t.Fatalf("expected ErrJWTSecretNotConfigured for weak secret, got %v", err)
 	}
 }

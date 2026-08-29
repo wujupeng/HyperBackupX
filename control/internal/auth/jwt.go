@@ -3,7 +3,7 @@ package auth
 import (
 	"errors"
 	"fmt"
-	"os"
+
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -22,15 +22,16 @@ type JWTManager struct {
 	expiration time.Duration
 }
 
-func NewJWTManager() *JWTManager {
-	secret := os.Getenv("HBX_JWT_SECRET")
-	if secret == "" {
-		secret = "hbx-dev-secret-change-in-production"
+var ErrJWTSecretNotConfigured = fmt.Errorf("JWT Secret 未配置，请通过 SecretLoader 注入")
+
+func NewJWTManager(secret []byte) (*JWTManager, error) {
+	if len(secret) < 32 {
+		return nil, ErrJWTSecretNotConfigured
 	}
 	return &JWTManager{
-		secretKey:  []byte(secret),
+		secretKey:  secret,
 		expiration: 24 * time.Hour,
-	}
+	}, nil
 }
 
 func (m *JWTManager) Generate(userID uuid.UUID, username string, roles []string) (string, error) {
