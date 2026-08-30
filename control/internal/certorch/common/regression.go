@@ -14,8 +14,8 @@ type RegResult struct {
 }
 
 type RegressionRunner struct {
-	goTestDir  string
-	cargoDir   string
+	goTestDir string
+	cargoDir  string
 }
 
 func NewRegressionRunner(goTestDir, cargoDir string) *RegressionRunner {

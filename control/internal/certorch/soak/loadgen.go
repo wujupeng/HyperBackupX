@@ -7,9 +7,9 @@ import (
 )
 
 type LoadPattern struct {
-	BackupInterval       time.Duration `json:"backup_interval"`
-	IncrementalInterval  time.Duration `json:"incremental_interval"`
-	RestoreInterval      time.Duration `json:"restore_interval"`
+	BackupInterval      time.Duration `json:"backup_interval"`
+	IncrementalInterval time.Duration `json:"incremental_interval"`
+	RestoreInterval     time.Duration `json:"restore_interval"`
 }
 
 type ResourceSample struct {

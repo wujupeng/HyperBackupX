@@ -10,14 +10,14 @@ import (
 )
 
 type SoakReport struct {
-	SessionID    string         `json:"session_id"`
-	Duration     SoakDuration   `json:"duration"`
-	Verdict      common.Verdict3 `json:"verdict"`
-	Stability    StabilityVerdict `json:"stability"`
-	Anomalies    []AnomalyEvent `json:"anomalies"`
-	Regression   common.RegResult `json:"regression"`
-	GeneratedAt  time.Time      `json:"generated_at"`
-	Summary      string         `json:"summary"`
+	SessionID   string           `json:"session_id"`
+	Duration    SoakDuration     `json:"duration"`
+	Verdict     common.Verdict3  `json:"verdict"`
+	Stability   StabilityVerdict `json:"stability"`
+	Anomalies   []AnomalyEvent   `json:"anomalies"`
+	Regression  common.RegResult `json:"regression"`
+	GeneratedAt time.Time        `json:"generated_at"`
+	Summary     string           `json:"summary"`
 }
 
 type SoakReportGenerator struct {

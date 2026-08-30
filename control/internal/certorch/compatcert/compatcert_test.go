@@ -1,6 +1,5 @@
 package compatcert
 
-
 import (
 	"testing"
 

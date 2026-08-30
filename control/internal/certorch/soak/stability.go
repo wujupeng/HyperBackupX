@@ -11,20 +11,20 @@ import (
 type StabilityMetric string
 
 const (
-	MetricMemoryLeak       StabilityMetric = "memory_leak"
-	MetricHandleLeak       StabilityMetric = "handle_leak"
-	MetricCPUDrift         StabilityMetric = "cpu_drift"
-	MetricDiskGrowth       StabilityMetric = "disk_growth"
-	MetricConnectionLeak   StabilityMetric = "connection_leak"
-	MetricZombieProcess    StabilityMetric = "zombie_process"
+	MetricMemoryLeak         StabilityMetric = "memory_leak"
+	MetricHandleLeak         StabilityMetric = "handle_leak"
+	MetricCPUDrift           StabilityMetric = "cpu_drift"
+	MetricDiskGrowth         StabilityMetric = "disk_growth"
+	MetricConnectionLeak     StabilityMetric = "connection_leak"
+	MetricZombieProcess      StabilityMetric = "zombie_process"
 	MetricHeartbeatStability StabilityMetric = "heartbeat_stability"
 )
 
 type MetricVerdict struct {
-	Metric    StabilityMetric     `json:"metric"`
-	Verdict   common.Verdict3     `json:"verdict"`
-	RootCause string              `json:"root_cause,omitempty"`
-	NotTestedReason string        `json:"not_tested_reason,omitempty"`
+	Metric          StabilityMetric `json:"metric"`
+	Verdict         common.Verdict3 `json:"verdict"`
+	RootCause       string          `json:"root_cause,omitempty"`
+	NotTestedReason string          `json:"not_tested_reason,omitempty"`
 }
 
 type StabilityVerdict struct {

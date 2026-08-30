@@ -170,7 +170,7 @@ func TestFaultDetail(t *testing.T) {
 	injector := NewFaultInjector(42)
 
 	tests := []struct {
-		ft          FaultType
+		ft           FaultType
 		expectSubstr string
 	}{
 		{FaultUploadNetworkBreak, "network break"},

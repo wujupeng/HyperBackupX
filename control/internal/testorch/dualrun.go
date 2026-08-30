@@ -282,25 +282,25 @@ const (
 type StageVerdict string
 
 const (
-	SVPass             StageVerdict = "pass"
-	SVFail             StageVerdict = "fail"
-	SVNotSupported     StageVerdict = "not_supported"
+	SVPass              StageVerdict = "pass"
+	SVFail              StageVerdict = "fail"
+	SVNotSupported      StageVerdict = "not_supported"
 	SVDifferentByDesign StageVerdict = "different_by_design"
 )
 
 type StageComparison struct {
-	Stage            ChainStage            `json:"stage"`
-	Verdict          StageVerdict          `json:"verdict"`
-	DuplicatiSuccess bool                  `json:"duplicati_success"`
-	HbxSuccess       bool                  `json:"hbx_success"`
-	RootCause        string                `json:"root_cause,omitempty"`
-	DesignRationale  string                `json:"design_rationale,omitempty"`
-	NotSupportedReason string             `json:"not_supported_reason,omitempty"`
-	IntegrityReport  *MultiLayerReportRef  `json:"integrity_report,omitempty"`
+	Stage              ChainStage           `json:"stage"`
+	Verdict            StageVerdict         `json:"verdict"`
+	DuplicatiSuccess   bool                 `json:"duplicati_success"`
+	HbxSuccess         bool                 `json:"hbx_success"`
+	RootCause          string               `json:"root_cause,omitempty"`
+	DesignRationale    string               `json:"design_rationale,omitempty"`
+	NotSupportedReason string               `json:"not_supported_reason,omitempty"`
+	IntegrityReport    *MultiLayerReportRef `json:"integrity_report,omitempty"`
 }
 
 type MultiLayerReportRef struct {
-	TotalFiles int `json:"total_files"`
+	TotalFiles  int `json:"total_files"`
 	PassedFiles int `json:"passed_files"`
 	FailedFiles int `json:"failed_files"`
 }

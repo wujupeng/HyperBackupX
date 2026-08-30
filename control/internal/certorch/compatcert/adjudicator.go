@@ -1,6 +1,5 @@
 package compatcert
 
-
 import (
 	"hbx-control/internal/certorch/common"
 )

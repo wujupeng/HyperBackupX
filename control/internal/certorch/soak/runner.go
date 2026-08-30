@@ -1,6 +1,5 @@
 package soak
 
-
 import (
 	"context"
 	"encoding/json"
@@ -48,11 +47,11 @@ type AnomalyEvent struct {
 }
 
 type SoakTestRunner struct {
-	loadGen       *LoadGenerator
-	stability     *StabilityAnalyzer
-	regression    *common.RegressionRunner
-	reportGen     *SoakReportGenerator
-	freezer       *common.FrozenTargetFreezer
+	loadGen      *LoadGenerator
+	stability    *StabilityAnalyzer
+	regression   *common.RegressionRunner
+	reportGen    *SoakReportGenerator
+	freezer      *common.FrozenTargetFreezer
 	nottestedReg *common.NotTestedReasonRegistry
 }
 
@@ -65,11 +64,11 @@ func NewSoakTestRunner(
 	nottestedReg *common.NotTestedReasonRegistry,
 ) *SoakTestRunner {
 	return &SoakTestRunner{
-		loadGen:       loadGen,
-		stability:     stability,
-		regression:    regression,
-		reportGen:     reportGen,
-		freezer:       freezer,
+		loadGen:      loadGen,
+		stability:    stability,
+		regression:   regression,
+		reportGen:    reportGen,
+		freezer:      freezer,
 		nottestedReg: nottestedReg,
 	}
 }
@@ -98,9 +97,9 @@ func (r *SoakTestRunner) Run(ctx context.Context, sessionID string, req json.Raw
 	defer loadCancel()
 
 	if err := r.loadGen.Start(loadCtx, LoadPattern{
-		BackupInterval:   30 * time.Minute,
+		BackupInterval:      30 * time.Minute,
 		IncrementalInterval: 15 * time.Minute,
-		RestoreInterval:  2 * time.Hour,
+		RestoreInterval:     2 * time.Hour,
 	}); err != nil {
 		return fmt.Errorf("start load generator: %w", err)
 	}

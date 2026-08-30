@@ -1,6 +1,5 @@
 package common
 
-
 import (
 	"testing"
 )

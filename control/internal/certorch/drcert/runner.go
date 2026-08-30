@@ -1,6 +1,5 @@
 package drcert
 
-
 import (
 	"context"
 	"encoding/json"
@@ -13,12 +12,12 @@ import (
 type DRScenario string
 
 const (
-	DRAgentCrash          DRScenario = "agent_crash"
-	DRControlPlaneCrash   DRScenario = "control_plane_crash"
-	DRStorageCrash        DRScenario = "storage_crash"
-	DRNetworkLoss         DRScenario = "network_loss"
-	DRDatabaseRestart     DRScenario = "database_restart"
-	DRMachineReboot       DRScenario = "machine_reboot"
+	DRAgentCrash           DRScenario = "agent_crash"
+	DRControlPlaneCrash    DRScenario = "control_plane_crash"
+	DRStorageCrash         DRScenario = "storage_crash"
+	DRNetworkLoss          DRScenario = "network_loss"
+	DRDatabaseRestart      DRScenario = "database_restart"
+	DRMachineReboot        DRScenario = "machine_reboot"
 	DRRepositoryCorruption DRScenario = "repository_corruption"
 )
 
@@ -30,27 +29,27 @@ const (
 )
 
 type ScenarioResult struct {
-	Scenario       DRScenario       `json:"scenario"`
-	RTOSeconds     float64          `json:"rto_seconds"`
-	RPOSeconds     float64          `json:"rpo_seconds"`
-	DataIntegrity  bool             `json:"data_integrity"`
-	RecoveryKind   RecoveryKind     `json:"recovery_kind"`
-	RunbookID      string           `json:"runbook_id"`
-	Verdict        common.Verdict3  `json:"verdict"`
-	RootCause      string           `json:"root_cause,omitempty"`
+	Scenario        DRScenario      `json:"scenario"`
+	RTOSeconds      float64         `json:"rto_seconds"`
+	RPOSeconds      float64         `json:"rpo_seconds"`
+	DataIntegrity   bool            `json:"data_integrity"`
+	RecoveryKind    RecoveryKind    `json:"recovery_kind"`
+	RunbookID       string          `json:"runbook_id"`
+	Verdict         common.Verdict3 `json:"verdict"`
+	RootCause       string          `json:"root_cause,omitempty"`
 	NotTestedReason string          `json:"not_tested_reason,omitempty"`
 }
 
 type DRCertResult struct {
-	Scenarios  []ScenarioResult `json:"scenarios"`
-	AllPassed  bool             `json:"all_passed"`
-	Summary    string           `json:"summary"`
+	Scenarios []ScenarioResult `json:"scenarios"`
+	AllPassed bool             `json:"all_passed"`
+	Summary   string           `json:"summary"`
 }
 
 type RunbookEntry struct {
-	ID          string `json:"id"`
-	Scenario    DRScenario `json:"scenario"`
-	Description string `json:"description"`
+	ID           string       `json:"id"`
+	Scenario     DRScenario   `json:"scenario"`
+	Description  string       `json:"description"`
 	RecoveryKind RecoveryKind `json:"recovery_kind"`
 }
 
@@ -78,9 +77,9 @@ func (r *RecoveryRunbookRegistry) Lookup(scenario DRScenario) (RunbookEntry, boo
 }
 
 type DRCertRunner struct {
-	runbookReg  *RecoveryRunbookRegistry
-	frozenStore *common.FrozenTargetStore
-	archiver    *common.CertReportArchiver
+	runbookReg   *RecoveryRunbookRegistry
+	frozenStore  *common.FrozenTargetStore
+	archiver     *common.CertReportArchiver
 	nottestedReg *common.NotTestedReasonRegistry
 }
 

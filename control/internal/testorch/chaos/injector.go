@@ -11,15 +11,15 @@ import (
 type FaultType string
 
 const (
-	FaultUploadNetworkBreak  FaultType = "upload_network_break"
-	FaultKillAgent           FaultType = "kill_agent"
-	FaultWindowsRestart      FaultType = "windows_restart"
-	FaultDeleteVolume        FaultType = "delete_volume"
-	FaultModifyChunk         FaultType = "modify_chunk"
-	FaultControlPlaneCrash   FaultType = "control_plane_crash"
-	FaultStorageCrash        FaultType = "storage_crash"
-	FaultDatabaseRestart     FaultType = "database_restart"
-	FaultMachineReboot       FaultType = "machine_reboot"
+	FaultUploadNetworkBreak   FaultType = "upload_network_break"
+	FaultKillAgent            FaultType = "kill_agent"
+	FaultWindowsRestart       FaultType = "windows_restart"
+	FaultDeleteVolume         FaultType = "delete_volume"
+	FaultModifyChunk          FaultType = "modify_chunk"
+	FaultControlPlaneCrash    FaultType = "control_plane_crash"
+	FaultStorageCrash         FaultType = "storage_crash"
+	FaultDatabaseRestart      FaultType = "database_restart"
+	FaultMachineReboot        FaultType = "machine_reboot"
 	FaultRepositoryCorruption FaultType = "repository_corruption"
 )
 
@@ -44,9 +44,9 @@ type FaultConfig struct {
 }
 
 type InjectedFault struct {
-	Config    FaultConfig `json:"config"`
-	InjectedAt time.Time  `json:"injected_at"`
-	Detail    string      `json:"detail"`
+	Config     FaultConfig `json:"config"`
+	InjectedAt time.Time   `json:"injected_at"`
+	Detail     string      `json:"detail"`
 }
 
 type ChaosFaultInjector struct {
@@ -80,9 +80,9 @@ func (i *ChaosFaultInjector) Inject(ft FaultType, target string) (*InjectedFault
 	}
 
 	fault := &InjectedFault{
-		Config:    config,
+		Config:     config,
 		InjectedAt: time.Now(),
-		Detail:    i.describeFault(ft, target, params),
+		Detail:     i.describeFault(ft, target, params),
 	}
 
 	i.faults = append(i.faults, *fault)
@@ -93,15 +93,15 @@ func (i *ChaosFaultInjector) generateFaultParams(ft FaultType) map[string]interf
 	switch ft {
 	case FaultUploadNetworkBreak:
 		return map[string]interface{}{
-			"duration_ms":   i.rand.Intn(60000) + 5000,
-			"target_host":   fmt.Sprintf("storage.%d.example.com", i.rand.Intn(10)),
-			"break_point":   []string{"before_upload", "during_upload", "after_upload"}[i.rand.Intn(3)],
+			"duration_ms": i.rand.Intn(60000) + 5000,
+			"target_host": fmt.Sprintf("storage.%d.example.com", i.rand.Intn(10)),
+			"break_point": []string{"before_upload", "during_upload", "after_upload"}[i.rand.Intn(3)],
 		}
 	case FaultKillAgent:
 		return map[string]interface{}{
-			"signal":     []string{"SIGTERM", "SIGKILL"}[i.rand.Intn(2)],
-			"delay_ms":   i.rand.Intn(10000),
-			"restart":    i.rand.Intn(2) == 1,
+			"signal":   []string{"SIGTERM", "SIGKILL"}[i.rand.Intn(2)],
+			"delay_ms": i.rand.Intn(10000),
+			"restart":  i.rand.Intn(2) == 1,
 		}
 	case FaultWindowsRestart:
 		return map[string]interface{}{

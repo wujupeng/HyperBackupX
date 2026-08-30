@@ -7,11 +7,11 @@ import (
 )
 
 type CPMetrics struct {
-	CollectedAt    time.Time `json:"collected_at"`
-	NumGoroutine   int       `json:"num_goroutine"`
-	HeapAllocBytes uint64    `json:"heap_alloc_bytes"`
-	HeapInUseBytes uint64    `json:"heap_in_use_bytes"`
-	StackInUseBytes uint64   `json:"stack_in_use_bytes"`
+	CollectedAt     time.Time `json:"collected_at"`
+	NumGoroutine    int       `json:"num_goroutine"`
+	HeapAllocBytes  uint64    `json:"heap_alloc_bytes"`
+	HeapInUseBytes  uint64    `json:"heap_in_use_bytes"`
+	StackInUseBytes uint64    `json:"stack_in_use_bytes"`
 }
 
 type CPMetricsCollector struct {

@@ -1,6 +1,5 @@
 package perfcert
 
-
 import (
 	"context"
 	"encoding/json"
@@ -28,26 +27,26 @@ const (
 type Operation string
 
 const (
-	OpInitialBackup   Operation = "initial_backup"
+	OpInitialBackup     Operation = "initial_backup"
 	OpIncrementalBackup Operation = "incremental_backup"
-	OpRestore         Operation = "restore"
-	OpVerify          Operation = "verify"
+	OpRestore           Operation = "restore"
+	OpVerify            Operation = "verify"
 )
 
 type BenchmarkResult struct {
-	DatasetSize     DatasetSize `json:"dataset_size"`
-	RAMScenario     RAMScenario `json:"ram_scenario"`
-	Operation       Operation   `json:"operation"`
-	CPUUsagePercent float64     `json:"cpu_usage_percent"`
-	RAMUsedBytes    uint64      `json:"ram_used_bytes"`
-	IOReadBytes     uint64      `json:"io_read_bytes"`
-	IOWriteBytes    uint64      `json:"io_write_bytes"`
-	NetworkRxBytes  uint64      `json:"network_rx_bytes"`
-	NetworkTxBytes  uint64      `json:"network_tx_bytes"`
-	ThroughputMBps  float64     `json:"throughput_mbps"`
-	TimeSeconds     float64     `json:"time_seconds"`
+	DatasetSize     DatasetSize     `json:"dataset_size"`
+	RAMScenario     RAMScenario     `json:"ram_scenario"`
+	Operation       Operation       `json:"operation"`
+	CPUUsagePercent float64         `json:"cpu_usage_percent"`
+	RAMUsedBytes    uint64          `json:"ram_used_bytes"`
+	IOReadBytes     uint64          `json:"io_read_bytes"`
+	IOWriteBytes    uint64          `json:"io_write_bytes"`
+	NetworkRxBytes  uint64          `json:"network_rx_bytes"`
+	NetworkTxBytes  uint64          `json:"network_tx_bytes"`
+	ThroughputMBps  float64         `json:"throughput_mbps"`
+	TimeSeconds     float64         `json:"time_seconds"`
 	Verdict         common.Verdict3 `json:"verdict"`
-	NotTestedReason string      `json:"not_tested_reason,omitempty"`
+	NotTestedReason string          `json:"not_tested_reason,omitempty"`
 }
 
 type PerfCertResult struct {
@@ -57,9 +56,9 @@ type PerfCertResult struct {
 }
 
 type PerfCertRunner struct {
-	frozenStore   *common.FrozenTargetStore
-	archiver      *common.CertReportArchiver
-	nottestedReg  *common.NotTestedReasonRegistry
+	frozenStore  *common.FrozenTargetStore
+	archiver     *common.CertReportArchiver
+	nottestedReg *common.NotTestedReasonRegistry
 }
 
 func NewPerfCertRunner(

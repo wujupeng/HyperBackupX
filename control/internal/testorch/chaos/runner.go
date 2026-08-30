@@ -45,18 +45,18 @@ type IntegrityReportRef struct {
 }
 
 type ChaosScenarioResult struct {
-	FaultType       FaultType         `json:"fault_type"`
-	BaselineCreated bool              `json:"baseline_created"`
-	FaultInjected   bool              `json:"fault_injected"`
-	DamageReport    DamageReport      `json:"damage_report"`
-	RecoveryResult  RecoveryResult    `json:"recovery_result"`
-	Passed          bool              `json:"passed"`
-	Detail          string            `json:"detail"`
-	RTOSeconds      float64           `json:"rto_seconds"`
-	RPOSeconds      float64           `json:"rpo_seconds"`
-	TFault          time.Time         `json:"t_fault"`
-	TRecovered      time.Time         `json:"t_recovered"`
-	TLastData       time.Time         `json:"t_last_data"`
+	FaultType       FaultType           `json:"fault_type"`
+	BaselineCreated bool                `json:"baseline_created"`
+	FaultInjected   bool                `json:"fault_injected"`
+	DamageReport    DamageReport        `json:"damage_report"`
+	RecoveryResult  RecoveryResult      `json:"recovery_result"`
+	Passed          bool                `json:"passed"`
+	Detail          string              `json:"detail"`
+	RTOSeconds      float64             `json:"rto_seconds"`
+	RPOSeconds      float64             `json:"rpo_seconds"`
+	TFault          time.Time           `json:"t_fault"`
+	TRecovered      time.Time           `json:"t_recovered"`
+	TLastData       time.Time           `json:"t_last_data"`
 	IntegrityReport *IntegrityReportRef `json:"integrity_report,omitempty"`
 }
 

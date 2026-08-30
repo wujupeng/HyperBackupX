@@ -10,10 +10,10 @@ import (
 )
 
 type StageResult struct {
-	Stage    ChainStage           `json:"stage"`
-	Verdict  common.CertVerdict4  `json:"verdict"`
-	DupBehavior Behavior          `json:"dup_behavior"`
-	HbxBehavior Behavior          `json:"hbx_behavior"`
+	Stage       ChainStage          `json:"stage"`
+	Verdict     common.CertVerdict4 `json:"verdict"`
+	DupBehavior Behavior            `json:"dup_behavior"`
+	HbxBehavior Behavior            `json:"hbx_behavior"`
 }
 
 type CompatCertResult struct {
@@ -23,8 +23,8 @@ type CompatCertResult struct {
 }
 
 type CompatCertRunner struct {
-	adjudicator *FourStateAdjudicator
-	archiver    *common.CertReportArchiver
+	adjudicator  *FourStateAdjudicator
+	archiver     *common.CertReportArchiver
 	nottestedReg *common.NotTestedReasonRegistry
 }
 
@@ -89,7 +89,7 @@ func (r *CompatCertRunner) Run(ctx context.Context, sessionID string, req json.R
 }
 
 type CompatCertReport struct {
-	SessionID   string    `json:"session_id"`
+	SessionID   string           `json:"session_id"`
 	Result      CompatCertResult `json:"result"`
-	GeneratedAt time.Time `json:"generated_at"`
+	GeneratedAt time.Time        `json:"generated_at"`
 }

@@ -1,6 +1,5 @@
 package drcert
 
-
 import (
 	"testing"
 
@@ -68,8 +67,8 @@ func TestScenarioResult_Pass(t *testing.T) {
 
 func TestScenarioResult_NotTestedForMachineReboot(t *testing.T) {
 	sr := ScenarioResult{
-		Scenario:       DRMachineReboot,
-		Verdict:        common.V3NotTested,
+		Scenario:        DRMachineReboot,
+		Verdict:         common.V3NotTested,
 		NotTestedReason: "machine reboot requires dedicated hardware",
 	}
 	if sr.Verdict != common.V3NotTested {

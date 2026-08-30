@@ -15,10 +15,10 @@ import (
 type CertGate string
 
 const (
-	GateG17Soak  CertGate = "G17_SOAK"
+	GateG17Soak   CertGate = "G17_SOAK"
 	GateG18Compat CertGate = "G18_COMPAT"
-	GateG19Perf  CertGate = "G19_PERF"
-	GateG20DR    CertGate = "G20_DR"
+	GateG19Perf   CertGate = "G19_PERF"
+	GateG20DR     CertGate = "G20_DR"
 )
 
 type EvidenceRef struct {
@@ -28,19 +28,19 @@ type EvidenceRef struct {
 }
 
 type CertReport struct {
-	ReportID          string      `json:"report_id"`
-	SessionID         string      `json:"session_id"`
-	Gate              CertGate    `json:"gate"`
-	Verdict           Verdict3    `json:"verdict"`
-	Content           []byte      `json:"content"`
-	EvidencePackageRef string     `json:"evidence_package_ref"`
-	ArchivedAt        time.Time   `json:"archived_at"`
+	ReportID           string    `json:"report_id"`
+	SessionID          string    `json:"session_id"`
+	Gate               CertGate  `json:"gate"`
+	Verdict            Verdict3  `json:"verdict"`
+	Content            []byte    `json:"content"`
+	EvidencePackageRef string    `json:"evidence_package_ref"`
+	ArchivedAt         time.Time `json:"archived_at"`
 }
 
 var (
-	archiverDSNPattern    = regexp.MustCompile(`postgres://[^@]+@`)
-	archiverBearerPattern = regexp.MustCompile(`Bearer\s+\S+`)
-	archiverKeyPattern    = regexp.MustCompile(`-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----`)
+	archiverDSNPattern      = regexp.MustCompile(`postgres://[^@]+@`)
+	archiverBearerPattern   = regexp.MustCompile(`Bearer\s+\S+`)
+	archiverKeyPattern      = regexp.MustCompile(`-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----`)
 	archiverSensitiveFields = map[string]bool{
 		"password": true, "passwd": true, "secret": true, "token": true,
 		"authorization": true, "dsn": true, "private_key": true,
@@ -129,12 +129,12 @@ func (a *CertReportArchiver) Archive(ctx context.Context, sessionID string, gate
 	}
 
 	return CertReport{
-		ReportID:          reportID,
-		SessionID:         sessionID,
-		Gate:              gate,
-		Verdict:           verdict,
-		Content:           redacted,
+		ReportID:           reportID,
+		SessionID:          sessionID,
+		Gate:               gate,
+		Verdict:            verdict,
+		Content:            redacted,
 		EvidencePackageRef: evidenceRef,
-		ArchivedAt:        now,
+		ArchivedAt:         now,
 	}, nil
 }

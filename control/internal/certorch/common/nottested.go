@@ -3,18 +3,17 @@ package common
 import (
 	"context"
 
-
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type NotTestedReason struct {
-	ReasonID        string `json:"reason_id"`
-	SessionID       string `json:"session_id"`
-	Item            string `json:"item"`
-	Cause           string `json:"cause"`
+	ReasonID         string `json:"reason_id"`
+	SessionID        string `json:"session_id"`
+	Item             string `json:"item"`
+	Cause            string `json:"cause"`
 	RequiredResource string `json:"required_resource"`
-	CreatedAt       string `json:"created_at"`
+	CreatedAt        string `json:"created_at"`
 }
 
 type NotTestedReasonRegistry struct {

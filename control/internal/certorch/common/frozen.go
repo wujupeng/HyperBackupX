@@ -16,14 +16,14 @@ const (
 )
 
 type FrozenTarget struct {
-	TargetID   string        `json:"target_id"`
-	Category   FrozenCategory `json:"category"`
-	Metric     string        `json:"metric"`
-	Scenario   string        `json:"scenario"`
-	Value      float64       `json:"value"`
-	Unit       string        `json:"unit"`
-	FrozenAt   string        `json:"frozen_at"`
-	FrozenBy   string        `json:"frozen_by"`
+	TargetID string         `json:"target_id"`
+	Category FrozenCategory `json:"category"`
+	Metric   string         `json:"metric"`
+	Scenario string         `json:"scenario"`
+	Value    float64        `json:"value"`
+	Unit     string         `json:"unit"`
+	FrozenAt string         `json:"frozen_at"`
+	FrozenBy string         `json:"frozen_by"`
 }
 
 type FrozenTargetStore struct {

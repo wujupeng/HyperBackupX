@@ -13,17 +13,17 @@ const (
 type Verdict4 string
 
 const (
-	V4Pass             Verdict4 = "pass"
-	V4Fail             Verdict4 = "fail"
-	V4NotSupported     Verdict4 = "not_supported"
+	V4Pass              Verdict4 = "pass"
+	V4Fail              Verdict4 = "fail"
+	V4NotSupported      Verdict4 = "not_supported"
 	V4DifferentByDesign Verdict4 = "different_by_design"
 )
 
 type CertVerdict struct {
-	Status             Verdict3 `json:"status"`
-	EvidenceRef        string   `json:"evidence_ref"`
-	RootCause          string   `json:"root_cause,omitempty"`
-	NotTestedReason    string   `json:"not_tested_reason,omitempty"`
+	Status          Verdict3 `json:"status"`
+	EvidenceRef     string   `json:"evidence_ref"`
+	RootCause       string   `json:"root_cause,omitempty"`
+	NotTestedReason string   `json:"not_tested_reason,omitempty"`
 }
 
 type CertVerdict4 struct {

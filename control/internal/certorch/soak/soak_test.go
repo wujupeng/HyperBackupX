@@ -1,6 +1,5 @@
 package soak
 
-
 import (
 	"testing"
 	"time"

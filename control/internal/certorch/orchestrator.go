@@ -1,6 +1,5 @@
 package certorch
 
-
 import (
 	"context"
 	"encoding/json"
@@ -29,9 +28,9 @@ type GateRunner interface {
 }
 
 type CertOrchestrator struct {
-	pool          *pgxpool.Pool
-	runners       map[common.CertGate]GateRunner
-	mu            sync.Mutex
+	pool           *pgxpool.Pool
+	runners        map[common.CertGate]GateRunner
+	mu             sync.Mutex
 	activeSessions map[common.CertGate]string
 }
 
