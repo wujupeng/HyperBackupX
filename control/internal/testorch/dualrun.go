@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"sync"
 	"time"
-
 )
 
 type DualRunInput struct {
@@ -14,11 +13,11 @@ type DualRunInput struct {
 }
 
 type DualRunComparison struct {
-	SHA256Match      bool
+	SHA256Match        bool
 	DirectoryTreeMatch bool
-	SizeMatch        bool
-	MetadataMatch    bool
-	Deviations       []string
+	SizeMatch          bool
+	MetadataMatch      bool
+	Deviations         []string
 }
 
 type DualRunComparator struct {
@@ -154,13 +153,13 @@ type FileComparisonResult struct {
 }
 
 type GoldenDualRunReport struct {
-	DatasetName      string                  `json:"dataset_name"`
-	TotalFiles       int                     `json:"total_files"`
-	PassedFiles      int                     `json:"passed_files"`
-	FailedFiles      int                     `json:"failed_files"`
-	ConsistencyRate  float64                 `json:"consistency_rate"`
-	FileResults      []FileComparisonResult  `json:"file_results"`
-	Summary          string                  `json:"summary"`
+	DatasetName     string                 `json:"dataset_name"`
+	TotalFiles      int                    `json:"total_files"`
+	PassedFiles     int                    `json:"passed_files"`
+	FailedFiles     int                    `json:"failed_files"`
+	ConsistencyRate float64                `json:"consistency_rate"`
+	FileResults     []FileComparisonResult `json:"file_results"`
+	Summary         string                 `json:"summary"`
 }
 
 func (c *DualRunComparator) RunGoldenDualComparison(dataset *GoldenDataset) *GoldenDualRunReport {
@@ -242,15 +241,15 @@ func (c *DualRunComparator) RunGoldenDualComparisonManaged(manager *Manager, dat
 	run := manager.CreateDualRun(inputSummary)
 
 	duplicatiResult := map[string]interface{}{
-		"operation":    "backup_restore",
-		"file_count":   dataset.Count(),
-		"total_size":   dataset.TotalSize(),
+		"operation":  "backup_restore",
+		"file_count": dataset.Count(),
+		"total_size": dataset.TotalSize(),
 	}
 
 	hbxResult := map[string]interface{}{
-		"operation":    "backup_restore",
-		"file_count":   dataset.Count(),
-		"total_size":   dataset.TotalSize(),
+		"operation":  "backup_restore",
+		"file_count": dataset.Count(),
+		"total_size": dataset.TotalSize(),
 	}
 
 	comparison := map[string]interface{}{
@@ -267,4 +266,100 @@ func (c *DualRunComparator) RunGoldenDualComparisonManaged(manager *Manager, dat
 	_ = completed
 
 	return report, nil
+}
+
+type ChainStage string
+
+const (
+	StageBackup   ChainStage = "backup"
+	StageRestore  ChainStage = "restore"
+	StageVersion  ChainStage = "version"
+	StageDelete   ChainStage = "delete"
+	StageVerify   ChainStage = "verify"
+	StageRecovery ChainStage = "recovery"
+)
+
+type StageVerdict string
+
+const (
+	SVPass             StageVerdict = "pass"
+	SVFail             StageVerdict = "fail"
+	SVNotSupported     StageVerdict = "not_supported"
+	SVDifferentByDesign StageVerdict = "different_by_design"
+)
+
+type StageComparison struct {
+	Stage            ChainStage            `json:"stage"`
+	Verdict          StageVerdict          `json:"verdict"`
+	DuplicatiSuccess bool                  `json:"duplicati_success"`
+	HbxSuccess       bool                  `json:"hbx_success"`
+	RootCause        string                `json:"root_cause,omitempty"`
+	DesignRationale  string                `json:"design_rationale,omitempty"`
+	NotSupportedReason string             `json:"not_supported_reason,omitempty"`
+	IntegrityReport  *MultiLayerReportRef  `json:"integrity_report,omitempty"`
+}
+
+type MultiLayerReportRef struct {
+	TotalFiles int `json:"total_files"`
+	PassedFiles int `json:"passed_files"`
+	FailedFiles int `json:"failed_files"`
+}
+
+type FullChainDualRunResult struct {
+	Stages    []StageComparison `json:"stages"`
+	AllPassed bool              `json:"all_passed"`
+	Summary   string            `json:"summary"`
+}
+
+func (c *DualRunComparator) RunFullChainDualComparison(
+	stages []ChainStage,
+	dupResults map[ChainStage]bool,
+	hbxResults map[ChainStage]bool,
+	diffByDesign map[ChainStage]string,
+	notSupported map[ChainStage]string,
+) *FullChainDualRunResult {
+	result := &FullChainDualRunResult{
+		Stages: make([]StageComparison, 0, len(stages)),
+	}
+
+	allPassed := true
+	for _, stage := range stages {
+		sc := StageComparison{
+			Stage:            stage,
+			DuplicatiSuccess: dupResults[stage],
+			HbxSuccess:       hbxResults[stage],
+		}
+
+		switch {
+		case diffByDesign[stage] != "":
+			sc.Verdict = SVDifferentByDesign
+			sc.DesignRationale = diffByDesign[stage]
+		case notSupported[stage] != "":
+			sc.Verdict = SVNotSupported
+			sc.NotSupportedReason = notSupported[stage]
+		case dupResults[stage] && hbxResults[stage]:
+			sc.Verdict = SVPass
+		case dupResults[stage] && !hbxResults[stage]:
+			sc.Verdict = SVFail
+			sc.RootCause = fmt.Sprintf("HBX failed at stage %s while Duplicati succeeded", stage)
+		default:
+			sc.Verdict = SVPass
+		}
+
+		if sc.Verdict != SVPass {
+			allPassed = false
+		}
+		result.Stages = append(result.Stages, sc)
+	}
+
+	result.AllPassed = allPassed
+	passed := 0
+	for _, s := range result.Stages {
+		if s.Verdict == SVPass {
+			passed++
+		}
+	}
+	result.Summary = fmt.Sprintf("Full chain dual-run: %d/%d stages passed", passed, len(stages))
+
+	return result
 }

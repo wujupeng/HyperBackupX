@@ -1,4 +1,5 @@
 package compat
+package compat
 
 type FeatureCategory string
 

@@ -21,8 +21,8 @@ func TestInjectAllFaultTypes(t *testing.T) {
 
 func TestFaultTypeCount(t *testing.T) {
 	types := AllFaultTypes()
-	if len(types) != 5 {
-		t.Errorf("expected 5 fault types, got %d", len(types))
+	if len(types) != 10 {
+		t.Errorf("expected 10 fault types, got %d", len(types))
 	}
 }
 
@@ -64,6 +64,11 @@ func TestFaultParameters(t *testing.T) {
 		{FaultWindowsRestart, "force"},
 		{FaultDeleteVolume, "volume_id"},
 		{FaultModifyChunk, "chunk_index"},
+		{FaultControlPlaneCrash, "signal"},
+		{FaultStorageCrash, "signal"},
+		{FaultDatabaseRestart, "command"},
+		{FaultMachineReboot, "command"},
+		{FaultRepositoryCorruption, "corruption_type"},
 	}
 
 	for _, tt := range tests {
@@ -91,8 +96,8 @@ func TestInjectAll(t *testing.T) {
 	if err != nil {
 		t.Fatalf("InjectAll failed: %v", err)
 	}
-	if len(faults) != 5 {
-		t.Errorf("expected 5 faults, got %d", len(faults))
+	if len(faults) != 10 {
+		t.Errorf("expected 10 faults, got %d", len(faults))
 	}
 }
 
@@ -173,6 +178,11 @@ func TestFaultDetail(t *testing.T) {
 		{FaultWindowsRestart, "Windows restart"},
 		{FaultDeleteVolume, "volume deleted"},
 		{FaultModifyChunk, "chunk modified"},
+		{FaultControlPlaneCrash, "control plane crash"},
+		{FaultStorageCrash, "storage crash"},
+		{FaultDatabaseRestart, "database restart"},
+		{FaultMachineReboot, "machine reboot"},
+		{FaultRepositoryCorruption, "repository corruption"},
 	}
 
 	for _, tt := range tests {

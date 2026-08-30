@@ -1,6 +1,5 @@
 package testorch
 
-
 import (
 	"crypto/sha256"
 	"encoding/hex"
@@ -11,16 +10,16 @@ import (
 type GoldenFixtureType string
 
 const (
-	FixtureOneByte      GoldenFixtureType = "one_byte"
-	FixtureEmpty        GoldenFixtureType = "empty"
-	FixtureLarge        GoldenFixtureType = "large"
-	FixtureChineseName  GoldenFixtureType = "chinese_filename"
-	FixtureLongPath     GoldenFixtureType = "long_path"
-	FixtureHidden       GoldenFixtureType = "hidden"
-	FixtureDuplicate    GoldenFixtureType = "duplicate"
-	FixtureModified     GoldenFixtureType = "modified"
-	FixtureDeleted      GoldenFixtureType = "deleted"
-	FixtureLocked       GoldenFixtureType = "locked"
+	FixtureOneByte     GoldenFixtureType = "one_byte"
+	FixtureEmpty       GoldenFixtureType = "empty"
+	FixtureLarge       GoldenFixtureType = "large"
+	FixtureChineseName GoldenFixtureType = "chinese_filename"
+	FixtureLongPath    GoldenFixtureType = "long_path"
+	FixtureHidden      GoldenFixtureType = "hidden"
+	FixtureDuplicate   GoldenFixtureType = "duplicate"
+	FixtureModified    GoldenFixtureType = "modified"
+	FixtureDeleted     GoldenFixtureType = "deleted"
+	FixtureLocked      GoldenFixtureType = "locked"
 )
 
 type GoldenFixture struct {
@@ -35,7 +34,7 @@ type GoldenFixture struct {
 }
 
 type GoldenDataset struct {
-	Name    string          `json:"name"`
+	Name     string          `json:"name"`
 	Fixtures []GoldenFixture `json:"fixtures"`
 }
 
@@ -49,7 +48,7 @@ func NewGoldenDatasetBuilder(rootDir string) *GoldenDatasetBuilder {
 
 func (b *GoldenDatasetBuilder) Build() *GoldenDataset {
 	dataset := &GoldenDataset{
-		Name:    "hbx-golden-dataset",
+		Name:     "hbx-golden-dataset",
 		Fixtures: make([]GoldenFixture, 0),
 	}
 
@@ -325,4 +324,42 @@ func (d *GoldenDataset) TotalSize() int64 {
 func sha256hex(data []byte) string {
 	h := sha256.Sum256(data)
 	return hex.EncodeToString(h[:])
+}
+
+func (b *GoldenDatasetBuilder) Materialize(dataset *GoldenDataset, destDir string) error {
+	if err := osMkdirAll(destDir); err != nil {
+		return fmt.Errorf("create dest dir: %w", err)
+	}
+
+	for _, fixture := range dataset.Fixtures {
+		if fixture.IsDeleted {
+			continue
+		}
+
+		fullPath := joinPath(destDir, fixture.RelativePath)
+
+		if len(filepathBase(fullPath)) > 255 {
+			continue
+		}
+
+		parentDir := dirOf(fullPath)
+		if err := osMkdirAll(parentDir); err != nil {
+			return fmt.Errorf("create parent dir for %s: %w", fixture.RelativePath, err)
+		}
+
+		if fixture.IsLocked {
+			if err := osWriteFileLocked(fullPath, fixture.Content); err != nil {
+				return fmt.Errorf("write locked file %s: %w", fixture.RelativePath, err)
+			}
+		} else {
+			if err := osWriteFile(fullPath, fixture.Content); err != nil {
+				return fmt.Errorf("write file %s: %w", fixture.RelativePath, err)
+			}
+		}
+
+		if fixture.IsHidden {
+			osSetHidden(fullPath)
+		}
+	}
+	return nil
 }

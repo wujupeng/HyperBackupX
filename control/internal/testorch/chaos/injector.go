@@ -11,11 +11,16 @@ import (
 type FaultType string
 
 const (
-	FaultUploadNetworkBreak FaultType = "upload_network_break"
-	FaultKillAgent          FaultType = "kill_agent"
-	FaultWindowsRestart     FaultType = "windows_restart"
-	FaultDeleteVolume       FaultType = "delete_volume"
-	FaultModifyChunk        FaultType = "modify_chunk"
+	FaultUploadNetworkBreak  FaultType = "upload_network_break"
+	FaultKillAgent           FaultType = "kill_agent"
+	FaultWindowsRestart      FaultType = "windows_restart"
+	FaultDeleteVolume        FaultType = "delete_volume"
+	FaultModifyChunk         FaultType = "modify_chunk"
+	FaultControlPlaneCrash   FaultType = "control_plane_crash"
+	FaultStorageCrash        FaultType = "storage_crash"
+	FaultDatabaseRestart     FaultType = "database_restart"
+	FaultMachineReboot       FaultType = "machine_reboot"
+	FaultRepositoryCorruption FaultType = "repository_corruption"
 )
 
 var allFaultTypes = []FaultType{
@@ -24,6 +29,11 @@ var allFaultTypes = []FaultType{
 	FaultWindowsRestart,
 	FaultDeleteVolume,
 	FaultModifyChunk,
+	FaultControlPlaneCrash,
+	FaultStorageCrash,
+	FaultDatabaseRestart,
+	FaultMachineReboot,
+	FaultRepositoryCorruption,
 }
 
 type FaultConfig struct {
@@ -110,6 +120,32 @@ func (i *ChaosFaultInjector) generateFaultParams(ft FaultType) map[string]interf
 			"modify_type": []string{"flip_bit", "zero_fill", "random_fill"}[i.rand.Intn(3)],
 			"offset":      i.rand.Intn(4096),
 		}
+	case FaultControlPlaneCrash:
+		return map[string]interface{}{
+			"signal":   "SIGKILL",
+			"delay_ms": i.rand.Intn(5000),
+		}
+	case FaultStorageCrash:
+		return map[string]interface{}{
+			"signal":   "SIGKILL",
+			"delay_ms": i.rand.Intn(5000),
+		}
+	case FaultDatabaseRestart:
+		return map[string]interface{}{
+			"command":  "pg_ctl restart",
+			"delay_ms": i.rand.Intn(3000),
+		}
+	case FaultMachineReboot:
+		return map[string]interface{}{
+			"command":  []string{"reboot", "shutdown /r"}[i.rand.Intn(2)],
+			"force":    i.rand.Intn(2) == 1,
+			"delay_ms": i.rand.Intn(10000),
+		}
+	case FaultRepositoryCorruption:
+		return map[string]interface{}{
+			"corruption_type": []string{"chunk_corrupt", "manifest_delete", "metadata_damage"}[i.rand.Intn(3)],
+			"chunk_index":     i.rand.Intn(256),
+		}
 	default:
 		return map[string]interface{}{}
 	}
@@ -127,6 +163,16 @@ func (i *ChaosFaultInjector) describeFault(ft FaultType, target string, params m
 		return fmt.Sprintf("volume deleted on %s", target)
 	case FaultModifyChunk:
 		return fmt.Sprintf("chunk modified on %s", target)
+	case FaultControlPlaneCrash:
+		return fmt.Sprintf("control plane crash on %s", target)
+	case FaultStorageCrash:
+		return fmt.Sprintf("storage crash on %s", target)
+	case FaultDatabaseRestart:
+		return fmt.Sprintf("database restart on %s", target)
+	case FaultMachineReboot:
+		return fmt.Sprintf("machine reboot on %s", target)
+	case FaultRepositoryCorruption:
+		return fmt.Sprintf("repository corruption on %s", target)
 	default:
 		return fmt.Sprintf("unknown fault on %s", target)
 	}

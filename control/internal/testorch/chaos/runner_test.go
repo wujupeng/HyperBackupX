@@ -82,14 +82,14 @@ func TestRunAllScenarios(t *testing.T) {
 		t.Fatalf("RunAllScenarios failed: %v", err)
 	}
 
-	if report.TotalScenarios != 5 {
-		t.Errorf("expected 5 scenarios, got %d", report.TotalScenarios)
+	if report.TotalScenarios != 10 {
+		t.Errorf("expected 10 scenarios, got %d", report.TotalScenarios)
 	}
 	if report.FailedCount != 0 {
 		t.Errorf("expected 0 failures, got %d", report.FailedCount)
 	}
-	if report.PassedCount != 5 {
-		t.Errorf("expected 5 passes, got %d", report.PassedCount)
+	if report.PassedCount != 10 {
+		t.Errorf("expected 10 passes, got %d", report.PassedCount)
 	}
 	if report.LeakDetected {
 		t.Error("no leak should be detected when all scenarios pass")
@@ -327,8 +327,8 @@ func TestDisasterDrillFullDrill(t *testing.T) {
 		t.Fatalf("ExecuteFullDrill failed: %v", err)
 	}
 
-	if len(reports) != 5 {
-		t.Errorf("expected 5 drill reports, got %d", len(reports))
+	if len(reports) != 10 {
+		t.Errorf("expected 10 drill reports, got %d", len(reports))
 	}
 
 	for _, r := range reports {

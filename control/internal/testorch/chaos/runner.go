@@ -8,54 +8,71 @@ import (
 )
 
 type DamageLocation struct {
-	Path     string `json:"path"`
-	ChunkID  string `json:"chunk_id,omitempty"`
-	Offset   int64  `json:"offset,omitempty"`
+	Path    string `json:"path"`
+	ChunkID string `json:"chunk_id,omitempty"`
+	Offset  int64  `json:"offset,omitempty"`
 }
 
 type DamageReport struct {
-	Detected     bool            `json:"detected"`
-	Location     DamageLocation  `json:"location"`
-	Type         string          `json:"type"`
-	ImpactRange  string          `json:"impact_range"`
-	Description  string          `json:"description"`
+	Detected    bool           `json:"detected"`
+	Location    DamageLocation `json:"location"`
+	Type        string         `json:"type"`
+	ImpactRange string         `json:"impact_range"`
+	Description string         `json:"description"`
 }
 
+type RecoveryKind string
+
+const (
+	RecoveryAutomatic RecoveryKind = "automatic"
+	RecoveryManual    RecoveryKind = "manual"
+	RecoveryNone      RecoveryKind = "none"
+)
+
 type RecoveryResult struct {
-	Attempted   bool   `json:"attempted"`
-	Rejected    bool   `json:"rejected"`
-	MarkedFailed bool  `json:"marked_failed"`
-	ErrorMsg    string `json:"error_msg,omitempty"`
+	Attempted    bool         `json:"attempted"`
+	Rejected     bool         `json:"rejected"`
+	MarkedFailed bool         `json:"marked_failed"`
+	ErrorMsg     string       `json:"error_msg,omitempty"`
+	RecoveryKind RecoveryKind `json:"recovery_kind,omitempty"`
+	RunbookID    string       `json:"runbook_id,omitempty"`
+}
+
+type IntegrityReportRef struct {
+	TotalFiles  int `json:"total_files"`
+	PassedFiles int `json:"passed_files"`
+	FailedFiles int `json:"failed_files"`
 }
 
 type ChaosScenarioResult struct {
-	FaultType       FaultType      `json:"fault_type"`
-	BaselineCreated bool           `json:"baseline_created"`
-	FaultInjected   bool           `json:"fault_injected"`
-	DamageReport    DamageReport   `json:"damage_report"`
-	RecoveryResult  RecoveryResult `json:"recovery_result"`
-	Passed          bool           `json:"passed"`
-	Detail          string         `json:"detail"`
-	RTOSeconds      float64        `json:"rto_seconds"`
-	RPOSeconds      float64        `json:"rpo_seconds"`
-	TFault          time.Time      `json:"t_fault"`
-	TRecovered      time.Time      `json:"t_recovered"`
-	TLastData       time.Time      `json:"t_last_data"`
+	FaultType       FaultType         `json:"fault_type"`
+	BaselineCreated bool              `json:"baseline_created"`
+	FaultInjected   bool              `json:"fault_injected"`
+	DamageReport    DamageReport      `json:"damage_report"`
+	RecoveryResult  RecoveryResult    `json:"recovery_result"`
+	Passed          bool              `json:"passed"`
+	Detail          string            `json:"detail"`
+	RTOSeconds      float64           `json:"rto_seconds"`
+	RPOSeconds      float64           `json:"rpo_seconds"`
+	TFault          time.Time         `json:"t_fault"`
+	TRecovered      time.Time         `json:"t_recovered"`
+	TLastData       time.Time         `json:"t_last_data"`
+	IntegrityReport *IntegrityReportRef `json:"integrity_report,omitempty"`
 }
 
 type ChaosReport struct {
-	TotalScenarios  int                  `json:"total_scenarios"`
-	PassedCount     int                  `json:"passed_count"`
-	FailedCount     int                  `json:"failed_count"`
-	Results         []ChaosScenarioResult `json:"results"`
-	LeakDetected    bool                 `json:"leak_detected"`
-	GeneratedAt     time.Time            `json:"generated_at"`
-	RTOSeconds      float64              `json:"rto_seconds"`
-	RPOSeconds      float64              `json:"rpo_seconds"`
-	RTOTarget       float64              `json:"rto_target"`
-	RPOTarget       float64              `json:"rpo_target"`
-	RTOMet          bool                 `json:"rto_met"`
-	RPOMet          bool                 `json:"rpo_met"`
+	TotalScenarios int                   `json:"total_scenarios"`
+	PassedCount    int                   `json:"passed_count"`
+	FailedCount    int                   `json:"failed_count"`
+	Results        []ChaosScenarioResult `json:"results"`
+	LeakDetected   bool                  `json:"leak_detected"`
+	GeneratedAt    time.Time             `json:"generated_at"`
+	RTOSeconds     float64               `json:"rto_seconds"`
+	RPOSeconds     float64               `json:"rpo_seconds"`
+	RTOTarget      float64               `json:"rto_target"`
+	RPOTarget      float64               `json:"rpo_target"`
+	RTOMet         bool                  `json:"rto_met"`
+	RPOMet         bool                  `json:"rpo_met"`
 }
 
 type ChaosPipelineRunner struct {
@@ -151,6 +168,46 @@ func (r *ChaosPipelineRunner) detectDamage(ft FaultType, target string) DamageRe
 			ImpactRange: "single_chunk",
 			Description: "chunk data modified, integrity check failed",
 		}
+	case FaultControlPlaneCrash:
+		return DamageReport{
+			Detected:    true,
+			Location:    DamageLocation{Path: target},
+			Type:        "control_plane_unavailable",
+			ImpactRange: "management_plane",
+			Description: "control plane crashed, management operations interrupted",
+		}
+	case FaultStorageCrash:
+		return DamageReport{
+			Detected:    true,
+			Location:    DamageLocation{Path: target},
+			Type:        "storage_unavailable",
+			ImpactRange: "storage_plane",
+			Description: "storage server crashed, data access interrupted",
+		}
+	case FaultDatabaseRestart:
+		return DamageReport{
+			Detected:    true,
+			Location:    DamageLocation{Path: target},
+			Type:        "database_restart",
+			ImpactRange: "metadata_store",
+			Description: "database restarted, metadata operations interrupted",
+		}
+	case FaultMachineReboot:
+		return DamageReport{
+			Detected:    true,
+			Location:    DamageLocation{Path: target},
+			Type:        "machine_reboot",
+			ImpactRange: "entire_machine",
+			Description: "machine rebooted, all operations interrupted",
+		}
+	case FaultRepositoryCorruption:
+		return DamageReport{
+			Detected:    true,
+			Location:    DamageLocation{Path: target, ChunkID: "chunk-corrupt"},
+			Type:        "repository_corruption",
+			ImpactRange: "repository_metadata",
+			Description: "repository corrupted, manifest or chunk damage detected",
+		}
 	default:
 		return DamageReport{
 			Detected:    false,
@@ -162,11 +219,25 @@ func (r *ChaosPipelineRunner) detectDamage(ft FaultType, target string) DamageRe
 func (r *ChaosPipelineRunner) attemptRecovery(ft FaultType, target string, damage DamageReport) RecoveryResult {
 	if !damage.Detected {
 		return RecoveryResult{
-			Attempted:   true,
-			Rejected:    false,
+			Attempted:    true,
+			Rejected:     false,
 			MarkedFailed: true,
-			ErrorMsg:    "damage not detected, recovery should not proceed",
+			ErrorMsg:     "damage not detected, recovery should not proceed",
+			RecoveryKind: RecoveryNone,
 		}
+	}
+
+	kind := RecoveryManual
+	runbookID := ""
+	switch ft {
+	case FaultKillAgent, FaultWindowsRestart, FaultMachineReboot:
+		kind = RecoveryAutomatic
+		runbookID = "RB-SCM-RESTART"
+	case FaultDatabaseRestart:
+		kind = RecoveryAutomatic
+		runbookID = "RB-DB-RESTART"
+	default:
+		runbookID = "RB-MANUAL-RECOVERY"
 	}
 
 	return RecoveryResult{
@@ -174,6 +245,8 @@ func (r *ChaosPipelineRunner) attemptRecovery(ft FaultType, target string, damag
 		Rejected:     true,
 		MarkedFailed: true,
 		ErrorMsg:     fmt.Sprintf("recovery rejected: %s detected at %s", damage.Type, damage.Location.Path),
+		RecoveryKind: kind,
+		RunbookID:    runbookID,
 	}
 }
 
@@ -266,23 +339,23 @@ func (r *ChaosPipelineRunner) CheckLeak(result *ChaosScenarioResult) bool {
 }
 
 type DisasterDrillReport struct {
-	DrillName        string               `json:"drill_name"`
-	FaultType        FaultType            `json:"fault_type"`
-	Target           string               `json:"target"`
-	FaultInjected    bool                 `json:"fault_injected"`
-	DamageDetected   bool                 `json:"damage_detected"`
-	RecoveryAttempted bool                `json:"recovery_attempted"`
-	DataIntegrityOK  bool                 `json:"data_integrity_ok"`
-	RTOSeconds       float64              `json:"rto_seconds"`
-	RPOSeconds       float64              `json:"rpo_seconds"`
-	RTOTarget        float64              `json:"rto_target"`
-	RPOTarget        float64              `json:"rpo_target"`
-	RTOMet           bool                 `json:"rto_met"`
-	RPOMet           bool                 `json:"rpo_met"`
-	OverallPassed    bool                 `json:"overall_passed"`
-	Detail           string               `json:"detail"`
-	StartedAt        time.Time            `json:"started_at"`
-	CompletedAt      time.Time            `json:"completed_at"`
+	DrillName         string    `json:"drill_name"`
+	FaultType         FaultType `json:"fault_type"`
+	Target            string    `json:"target"`
+	FaultInjected     bool      `json:"fault_injected"`
+	DamageDetected    bool      `json:"damage_detected"`
+	RecoveryAttempted bool      `json:"recovery_attempted"`
+	DataIntegrityOK   bool      `json:"data_integrity_ok"`
+	RTOSeconds        float64   `json:"rto_seconds"`
+	RPOSeconds        float64   `json:"rpo_seconds"`
+	RTOTarget         float64   `json:"rto_target"`
+	RPOTarget         float64   `json:"rpo_target"`
+	RTOMet            bool      `json:"rto_met"`
+	RPOMet            bool      `json:"rpo_met"`
+	OverallPassed     bool      `json:"overall_passed"`
+	Detail            string    `json:"detail"`
+	StartedAt         time.Time `json:"started_at"`
+	CompletedAt       time.Time `json:"completed_at"`
 }
 
 type DisasterDrillRunner struct {

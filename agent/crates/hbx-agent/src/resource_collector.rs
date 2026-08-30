@@ -20,12 +20,18 @@ pub struct ResourceMetrics {
     pub backup_throughput_mbps: f64,
     pub peak_memory_bytes: u64,
     pub avg_memory_bytes: u64,
+    pub open_handles: u64,
+    pub db_connections: u64,
+    pub http_connections: u64,
+    pub data_dir_bytes: u64,
+    pub log_dir_bytes: u64,
+    pub tmp_dir_bytes: u64,
     pub collected_at: u64,
 }
 
 impl ResourceMetrics {
     pub fn metric_count() -> usize {
-        8
+        14
     }
 
     pub fn to_json(&self) -> serde_json::Value {
@@ -40,6 +46,12 @@ impl ResourceMetrics {
             "backup_throughput_mbps": self.backup_throughput_mbps,
             "peak_memory_bytes": self.peak_memory_bytes,
             "avg_memory_bytes": self.avg_memory_bytes,
+            "open_handles": self.open_handles,
+            "db_connections": self.db_connections,
+            "http_connections": self.http_connections,
+            "data_dir_bytes": self.data_dir_bytes,
+            "log_dir_bytes": self.log_dir_bytes,
+            "tmp_dir_bytes": self.tmp_dir_bytes,
         })
     }
 }
@@ -207,6 +219,12 @@ impl ResourceCollector {
             backup_throughput_mbps,
             peak_memory_bytes,
             avg_memory_bytes,
+            open_handles: count_open_handles(self.pid),
+            db_connections: 0,
+            http_connections: 0,
+            data_dir_bytes: dir_size_bytes(&std::env::var("HBX_DATA_DIR").unwrap_or_default()),
+            log_dir_bytes: dir_size_bytes(&std::env::var("HBX_LOG_DIR").unwrap_or_default()),
+            tmp_dir_bytes: dir_size_bytes(&std::env::var("HBX_TMP_DIR").unwrap_or_default()),
             collected_at,
         }
     }
@@ -218,6 +236,47 @@ impl ResourceCollector {
     pub fn window_duration_secs() -> u64 {
         WINDOW_DURATION_SECS
     }
+}
+
+fn count_open_handles(pid: Pid) -> u64 {
+    #[cfg(target_os = "linux")]
+    {
+        let path = format!("/proc/{}/fd", pid.as_u32());
+        match std::fs::read_dir(&path) {
+            Ok(entries) => entries.count() as u64,
+            Err(_) => 0,
+        }
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = pid;
+        0
+    }
+}
+
+fn dir_size_bytes(path: &str) -> u64 {
+    if path.is_empty() {
+        return 0;
+    }
+    let p = std::path::Path::new(path);
+    if !p.exists() {
+        return 0;
+    }
+    let mut total = 0u64;
+    let mut stack = vec![p.to_path_buf()];
+    while let Some(dir) = stack.pop() {
+        if let Ok(entries) = std::fs::read_dir(&dir) {
+            for entry in entries.flatten() {
+                let entry_path = entry.path();
+                if entry_path.is_dir() {
+                    stack.push(entry_path);
+                } else if let Ok(meta) = entry.metadata() {
+                    total += meta.len();
+                }
+            }
+        }
+    }
+    total
 }
 
 impl Default for ResourceCollector {
@@ -374,7 +433,7 @@ mod tests {
 
     #[test]
     fn test_metric_count() {
-        assert_eq!(ResourceMetrics::metric_count(), 8);
+        assert_eq!(ResourceMetrics::metric_count(), 14);
     }
 
     #[test]
@@ -425,6 +484,45 @@ mod tests {
         } else {
             assert!(mode.max_concurrency >= 1);
         }
+    }
+
+    #[test]
+    fn test_open_handles_collected() {
+        let collector = ResourceCollector::new();
+        let metrics = collector.collect();
+        #[cfg(target_os = "linux")]
+        assert!(metrics.open_handles > 0);
+        #[cfg(not(target_os = "linux"))]
+        assert_eq!(metrics.open_handles, 0);
+    }
+
+    #[test]
+    fn test_dir_size_empty_path() {
+        assert_eq!(dir_size_bytes(""), 0);
+    }
+
+    #[test]
+    fn test_dir_size_nonexistent() {
+        assert_eq!(dir_size_bytes("/nonexistent/path/that/does/not/exist"), 0);
+    }
+
+    #[test]
+    fn test_db_http_connections_default_zero() {
+        let collector = ResourceCollector::new();
+        let metrics = collector.collect();
+        assert_eq!(metrics.db_connections, 0);
+        assert_eq!(metrics.http_connections, 0);
+    }
+
+    #[test]
+    fn test_dir_metrics_in_json() {
+        let collector = ResourceCollector::new();
+        let metrics = collector.collect();
+        let json = metrics.to_json();
+        assert!(json.get("open_handles").is_some());
+        assert!(json.get("data_dir_bytes").is_some());
+        assert!(json.get("log_dir_bytes").is_some());
+        assert!(json.get("tmp_dir_bytes").is_some());
     }
 
     #[test]

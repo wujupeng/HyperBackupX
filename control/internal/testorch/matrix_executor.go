@@ -5,8 +5,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/google/uuid"
 	"hbx-control/internal/compat"
+
+	"github.com/google/uuid"
 )
 
 type MatrixDefinition struct {
@@ -16,9 +17,9 @@ type MatrixDefinition struct {
 type HbxFeatureStatus string
 
 const (
-	HbxImplemented     HbxFeatureStatus = "implemented"
-	HbxNotImplemented  HbxFeatureStatus = "not_implemented"
-	HbxPartial         HbxFeatureStatus = "partial"
+	HbxImplemented    HbxFeatureStatus = "implemented"
+	HbxNotImplemented HbxFeatureStatus = "not_implemented"
+	HbxPartial        HbxFeatureStatus = "partial"
 )
 
 type CompatMatrixEntry struct {
@@ -31,12 +32,12 @@ type CompatMatrixEntry struct {
 }
 
 type FeatureCoverageReport struct {
-	TotalFeatures     int                `json:"total_features"`
-	ImplementedCount int                `json:"implemented_count"`
-	PartialCount     int                `json:"partial_count"`
-	NotImplementedCount int             `json:"not_implemented_count"`
-	CoverageRate      float64            `json:"coverage_rate"`
-	Entries           []CompatMatrixEntry `json:"entries"`
+	TotalFeatures       int                 `json:"total_features"`
+	ImplementedCount    int                 `json:"implemented_count"`
+	PartialCount        int                 `json:"partial_count"`
+	NotImplementedCount int                 `json:"not_implemented_count"`
+	CoverageRate        float64             `json:"coverage_rate"`
+	Entries             []CompatMatrixEntry `json:"entries"`
 }
 
 type HbxFeatureRegistry struct {
@@ -53,63 +54,63 @@ func NewHbxFeatureRegistry() *HbxFeatureRegistry {
 
 func (r *HbxFeatureRegistry) initDefaults() {
 	defaults := map[string]HbxFeatureStatus{
-		"full_backup":              HbxImplemented,
-		"incremental_backup":       HbxImplemented,
-		"block_level_incremental":  HbxImplemented,
-		"forever_incremental":      HbxImplemented,
-		"scheduled_backup":         HbxImplemented,
-		"backup_verification":      HbxImplemented,
-		"full_restore":             HbxImplemented,
-		"selective_restore":        HbxImplemented,
-		"restore_to_original":      HbxImplemented,
-		"restore_to_new_location":  HbxImplemented,
-		"restore_overwrite_policy": HbxImplemented,
-		"point_in_time_restore":    HbxImplemented,
-		"block_dedup":              HbxImplemented,
-		"global_dedup":             HbxImplemented,
-		"dedup_ratio_reporting":    HbxPartial,
-		"zstd_compression":         HbxImplemented,
-		"lz4_compression":          HbxImplemented,
-		"gzip_compression":         HbxNotImplemented,
-		"no_compression":           HbxImplemented,
-		"compression_level":        HbxImplemented,
-		"aes256_encryption":        HbxImplemented,
-		"gpg_encryption":           HbxNotImplemented,
-		"no_encryption":            HbxImplemented,
-		"key_derivation":           HbxImplemented,
-		"keep_all_versions":        HbxImplemented,
-		"keep_number_of_versions":  HbxImplemented,
-		"keep_time_interval":       HbxImplemented,
-		"smart_retention":          HbxImplemented,
-		"include_filter":           HbxImplemented,
-		"exclude_filter":           HbxImplemented,
-		"glob_filter":              HbxImplemented,
-		"regex_filter":             HbxPartial,
-		"locked_file_handling":     HbxPartial,
-		"resume_interrupted_backup": HbxImplemented,
-		"network_retry":            HbxImplemented,
-		"bandwidth_throttle":       HbxNotImplemented,
-		"backup_lock":              HbxImplemented,
-		"large_file_support":       HbxImplemented,
-		"unicode_filenames":        HbxImplemented,
-		"long_path_support":        HbxImplemented,
-		"many_files_support":       HbxImplemented,
-		"multi_destination":        HbxNotImplemented,
-		"cli_interface":            HbxImplemented,
-		"web_ui":                   HbxImplemented,
-		"api_interface":            HbxImplemented,
-		"progress_reporting":       HbxImplemented,
-		"notifications":            HbxNotImplemented,
-		"config_import":            HbxImplemented,
-		"config_export":            HbxImplemented,
-		"command_line_export":      HbxNotImplemented,
+		"full_backup":                 HbxImplemented,
+		"incremental_backup":          HbxImplemented,
+		"block_level_incremental":     HbxImplemented,
+		"forever_incremental":         HbxImplemented,
+		"scheduled_backup":            HbxImplemented,
+		"backup_verification":         HbxImplemented,
+		"full_restore":                HbxImplemented,
+		"selective_restore":           HbxImplemented,
+		"restore_to_original":         HbxImplemented,
+		"restore_to_new_location":     HbxImplemented,
+		"restore_overwrite_policy":    HbxImplemented,
+		"point_in_time_restore":       HbxImplemented,
+		"block_dedup":                 HbxImplemented,
+		"global_dedup":                HbxImplemented,
+		"dedup_ratio_reporting":       HbxPartial,
+		"zstd_compression":            HbxImplemented,
+		"lz4_compression":             HbxImplemented,
+		"gzip_compression":            HbxNotImplemented,
+		"no_compression":              HbxImplemented,
+		"compression_level":           HbxImplemented,
+		"aes256_encryption":           HbxImplemented,
+		"gpg_encryption":              HbxNotImplemented,
+		"no_encryption":               HbxImplemented,
+		"key_derivation":              HbxImplemented,
+		"keep_all_versions":           HbxImplemented,
+		"keep_number_of_versions":     HbxImplemented,
+		"keep_time_interval":          HbxImplemented,
+		"smart_retention":             HbxImplemented,
+		"include_filter":              HbxImplemented,
+		"exclude_filter":              HbxImplemented,
+		"glob_filter":                 HbxImplemented,
+		"regex_filter":                HbxPartial,
+		"locked_file_handling":        HbxPartial,
+		"resume_interrupted_backup":   HbxImplemented,
+		"network_retry":               HbxImplemented,
+		"bandwidth_throttle":          HbxNotImplemented,
+		"backup_lock":                 HbxImplemented,
+		"large_file_support":          HbxImplemented,
+		"unicode_filenames":           HbxImplemented,
+		"long_path_support":           HbxImplemented,
+		"many_files_support":          HbxImplemented,
+		"multi_destination":           HbxNotImplemented,
+		"cli_interface":               HbxImplemented,
+		"web_ui":                      HbxImplemented,
+		"api_interface":               HbxImplemented,
+		"progress_reporting":          HbxImplemented,
+		"notifications":               HbxNotImplemented,
+		"config_import":               HbxImplemented,
+		"config_export":               HbxImplemented,
+		"command_line_export":         HbxNotImplemented,
 		"no_backend_secret_in_config": HbxImplemented,
-		"file_metadata":            HbxImplemented,
-		"hardlink_support":         HbxPartial,
-		"symlink_support":          HbxImplemented,
-		"acl_support":              HbxNotImplemented,
-		"xattr_support":            HbxPartial,
-		"timestamp_preservation":   HbxImplemented,
+		"file_metadata":               HbxImplemented,
+		"hardlink_support":            HbxPartial,
+		"symlink_support":             HbxImplemented,
+		"acl_support":                 HbxNotImplemented,
+		"xattr_support":               HbxPartial,
+		"timestamp_preservation":      HbxImplemented,
 	}
 	for k, v := range defaults {
 		r.statuses[k] = v
@@ -311,8 +312,8 @@ func (e *MatrixExecutor) ExecuteCompatMatrix(catalog *compat.DuplicatiFeatureCat
 
 	return &FeatureCoverageReport{
 		TotalFeatures:       total,
-		ImplementedCount:   implementedCount,
-		PartialCount:       partialCount,
+		ImplementedCount:    implementedCount,
+		PartialCount:        partialCount,
 		NotImplementedCount: notImplCount,
 		CoverageRate:        coverageRate,
 		Entries:             entries,

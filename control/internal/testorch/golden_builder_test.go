@@ -190,3 +190,49 @@ func TestGoldenDatasetTotalSize(t *testing.T) {
 		t.Errorf("expected positive total size, got %d", total)
 	}
 }
+
+func TestGoldenDatasetMaterialize(t *testing.T) {
+	builder := NewGoldenDatasetBuilder("/tmp/golden")
+	dataset := builder.Build()
+
+	destDir := t.TempDir()
+	err := builder.Materialize(dataset, destDir)
+	if err != nil {
+		t.Fatalf("Materialize failed: %v", err)
+	}
+
+	writtenCount := 0
+	for _, fixture := range dataset.Fixtures {
+		if fixture.IsDeleted {
+			continue
+		}
+		fullPath := joinPath(destDir, fixture.RelativePath)
+		if _, err := osStat(fullPath); err == nil {
+			writtenCount++
+		}
+	}
+
+	if writtenCount == 0 {
+		t.Error("expected at least some files to be materialized")
+	}
+}
+
+func TestGoldenDatasetMaterialize_DeletedSkipped(t *testing.T) {
+	builder := NewGoldenDatasetBuilder("/tmp/golden")
+	dataset := builder.Build()
+
+	destDir := t.TempDir()
+	err := builder.Materialize(dataset, destDir)
+	if err != nil {
+		t.Fatalf("Materialize failed: %v", err)
+	}
+
+	for _, fixture := range dataset.Fixtures {
+		if fixture.IsDeleted {
+			fullPath := joinPath(destDir, fixture.RelativePath)
+			if _, err := osStat(fullPath); err == nil {
+				t.Errorf("deleted file %s should not be materialized", fixture.RelativePath)
+			}
+		}
+	}
+}
