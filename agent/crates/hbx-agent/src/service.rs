@@ -93,6 +93,12 @@ mod ffi {
             lp_password: LPCWSTR,
             lp_display_name: LPCWSTR,
         ) -> BOOL;
+
+        pub fn ChangeServiceConfig2W(
+            h_service: SC_HANDLE,
+            dw_info_level: DWORD,
+            lp_info: *mut c_void,
+        ) -> BOOL;
     }
 
     pub const SC_MANAGER_CONNECT: DWORD = 0x0001;
@@ -126,6 +132,34 @@ mod ffi {
 
     pub const SERVICE_ACCEPT_STOP: DWORD = 0x00000001;
     pub const SERVICE_ACCEPT_SHUTDOWN: DWORD = 0x00000004;
+
+    pub const SERVICE_CONFIG_FAILURE_ACTIONS: DWORD = 2;
+    pub const SERVICE_CONFIG_DELAYED_AUTO_START: DWORD = 3;
+
+    pub const SC_ACTION_NONE: DWORD = 0;
+    pub const SC_ACTION_RESTART: DWORD = 1;
+    pub const SC_ACTION_REBOOT: DWORD = 2;
+    pub const SC_ACTION_RUN_COMMAND: DWORD = 3;
+
+    #[repr(C)]
+    pub struct SC_ACTION {
+        pub rtype: DWORD,
+        pub delay: DWORD,
+    }
+
+    #[repr(C)]
+    pub struct SERVICE_FAILURE_ACTIONSW {
+        pub dw_reset_period: DWORD,
+        pub lp_reboot_msg: LPWSTR,
+        pub lp_command: LPWSTR,
+        pub c_actions: DWORD,
+        pub lpsa_actions: *mut SC_ACTION,
+    }
+
+    #[repr(C)]
+    pub struct SERVICE_DELAYED_AUTO_START_INFO {
+        pub f_delayed_auto_start: BOOL,
+    }
 }
 
 /// Service 配置
@@ -399,6 +433,123 @@ pub fn set_start_type(_name: &str, _auto_start: bool) -> Result<(), ServiceError
     Err(ServiceError::NotSupported)
 }
 
+#[cfg(windows)]
+pub fn configure_failure_recovery(name: &str) -> Result<(), ServiceError> {
+    unsafe {
+        let scm = ffi::OpenSCManagerW(ptr::null(), ptr::null(), ffi::SC_MANAGER_CONNECT);
+        if scm.is_null() {
+            return Err(last_error());
+        }
+
+        let name_w = to_wide(name);
+        let service = ffi::OpenServiceW(
+            scm,
+            name_w.as_ptr(),
+            ffi::SERVICE_CHANGE_CONFIG,
+        );
+        if service.is_null() {
+            let err = last_error();
+            ffi::CloseServiceHandle(scm);
+            return Err(err);
+        }
+
+        let actions = [
+            ffi::SC_ACTION { rtype: ffi::SC_ACTION_RESTART, delay: 5000 },
+            ffi::SC_ACTION { rtype: ffi::SC_ACTION_RESTART, delay: 5000 },
+            ffi::SC_ACTION { rtype: ffi::SC_ACTION_RESTART, delay: 5000 },
+        ];
+
+        let failure_actions = ffi::SERVICE_FAILURE_ACTIONSW {
+            dw_reset_period: 60,
+            lp_reboot_msg: ptr::null_mut(),
+            lp_command: ptr::null_mut(),
+            c_actions: actions.len() as ffi::DWORD,
+            lpsa_actions: actions.as_ptr() as *mut ffi::SC_ACTION,
+        };
+
+        let ok = ffi::ChangeServiceConfig2W(
+            service,
+            ffi::SERVICE_CONFIG_FAILURE_ACTIONS,
+            &failure_actions as *const _ as *mut std::os::raw::c_void,
+        );
+
+        if ok == 0 {
+            let err = last_error();
+            ffi::CloseServiceHandle(service);
+            ffi::CloseServiceHandle(scm);
+            return Err(err);
+        }
+
+        let delayed_info = ffi::SERVICE_DELAYED_AUTO_START_INFO {
+            f_delayed_auto_start: 1,
+        };
+
+        let ok = ffi::ChangeServiceConfig2W(
+            service,
+            ffi::SERVICE_CONFIG_DELAYED_AUTO_START,
+            &delayed_info as *const _ as *mut std::os::raw::c_void,
+        );
+
+        ffi::CloseServiceHandle(service);
+        ffi::CloseServiceHandle(scm);
+
+        if ok == 0 {
+            return Err(last_error());
+        }
+    }
+    Ok(())
+}
+
+#[cfg(not(windows))]
+pub fn configure_failure_recovery(_name: &str) -> Result<(), ServiceError> {
+    Err(ServiceError::NotSupported)
+}
+
+#[cfg(windows)]
+pub fn enable_delayed_auto_start(name: &str) -> Result<(), ServiceError> {
+    unsafe {
+        let scm = ffi::OpenSCManagerW(ptr::null(), ptr::null(), ffi::SC_MANAGER_CONNECT);
+        if scm.is_null() {
+            return Err(last_error());
+        }
+
+        let name_w = to_wide(name);
+        let service = ffi::OpenServiceW(
+            scm,
+            name_w.as_ptr(),
+            ffi::SERVICE_CHANGE_CONFIG,
+        );
+        if service.is_null() {
+            let err = last_error();
+            ffi::CloseServiceHandle(scm);
+            return Err(err);
+        }
+
+        let delayed_info = ffi::SERVICE_DELAYED_AUTO_START_INFO {
+            f_delayed_auto_start: 1,
+        };
+
+        let ok = ffi::ChangeServiceConfig2W(
+            service,
+            ffi::SERVICE_CONFIG_DELAYED_AUTO_START,
+            &delayed_info as *const _ as *mut std::os::raw::c_void,
+        );
+
+        ffi::CloseServiceHandle(service);
+        ffi::CloseServiceHandle(scm);
+
+        if ok == 0 {
+            return Err(last_error());
+        }
+    }
+    Ok(())
+}
+
+#[cfg(not(windows))]
+pub fn enable_delayed_auto_start(_name: &str) -> Result<(), ServiceError> {
+    Err(ServiceError::NotSupported)
+}
+
 
 /// 检查 Service 是否已注册
 #[cfg(windows)]
@@ -463,5 +614,35 @@ mod tests {
         let config = ServiceConfig::default();
         let result = register_service(&config);
         assert!(matches!(result, Err(ServiceError::NotSupported)));
+    }
+
+    #[cfg(not(windows))]
+    #[test]
+    fn test_configure_failure_recovery_not_supported() {
+        let result = configure_failure_recovery("test");
+        assert!(matches!(result, Err(ServiceError::NotSupported)));
+    }
+
+    #[cfg(not(windows))]
+    #[test]
+    fn test_enable_delayed_auto_start_not_supported() {
+        let result = enable_delayed_auto_start("test");
+        assert!(matches!(result, Err(ServiceError::NotSupported)));
+    }
+
+    #[test]
+    fn test_service_config_session0_isolation() {
+        let config = ServiceConfig::default();
+        assert_eq!(config.name, "HyperBackupXAgent");
+    }
+
+    #[test]
+    fn test_failure_recovery_constants() {
+        #[cfg(windows)]
+        {
+            assert_eq!(ffi::SC_ACTION_RESTART, 1);
+            assert_eq!(ffi::SERVICE_CONFIG_FAILURE_ACTIONS, 2);
+            assert_eq!(ffi::SERVICE_CONFIG_DELAYED_AUTO_START, 3);
+        }
     }
 }
