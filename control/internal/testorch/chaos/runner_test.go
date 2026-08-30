@@ -193,3 +193,169 @@ func TestFaultInjected(t *testing.T) {
 		t.Error("fault should be injected")
 	}
 }
+
+func TestRtoRpoMeasured(t *testing.T) {
+	injector := NewFaultInjector(42)
+	runner := NewPipelineRunner(injector)
+
+	result, err := runner.ExecuteScenario(FaultKillAgent, "test-target")
+	if err != nil {
+		t.Fatalf("scenario failed: %v", err)
+	}
+
+	if result.RTOSeconds < 0 {
+		t.Errorf("RTO should be non-negative, got %f", result.RTOSeconds)
+	}
+	if result.RPOSeconds < 0 {
+		t.Errorf("RPO should be non-negative, got %f", result.RPOSeconds)
+	}
+	if result.TFault.IsZero() {
+		t.Error("TFault should be set")
+	}
+	if result.TRecovered.IsZero() {
+		t.Error("TRecovered should be set")
+	}
+	if result.TLastData.IsZero() {
+		t.Error("TLastData should be set")
+	}
+}
+
+func TestRtoRpoInReport(t *testing.T) {
+	injector := NewFaultInjector(42)
+	runner := NewPipelineRunner(injector)
+
+	report, err := runner.RunAllScenarios("test-target")
+	if err != nil {
+		t.Fatalf("RunAllScenarios failed: %v", err)
+	}
+
+	if report.RTOSeconds < 0 {
+		t.Errorf("report RTO should be non-negative, got %f", report.RTOSeconds)
+	}
+	if report.RPOSeconds < 0 {
+		t.Errorf("report RPO should be non-negative, got %f", report.RPOSeconds)
+	}
+}
+
+func TestTargetsNotSet(t *testing.T) {
+	injector := NewFaultInjector(42)
+	runner := NewPipelineRunner(injector)
+
+	report, err := runner.RunAllScenarios("test-target")
+	if err != nil {
+		t.Fatalf("RunAllScenarios failed: %v", err)
+	}
+
+	if !report.RTOMet {
+		t.Error("RTO should be met when target is 0 (no target set)")
+	}
+	if !report.RPOMet {
+		t.Error("RPO should be met when target is 0 (no target set)")
+	}
+}
+
+func TestTargetsSetAndMet(t *testing.T) {
+	injector := NewFaultInjector(42)
+	runner := NewPipelineRunner(injector)
+	runner.SetTargets(100.0, 100.0)
+
+	report, err := runner.RunAllScenarios("test-target")
+	if err != nil {
+		t.Fatalf("RunAllScenarios failed: %v", err)
+	}
+
+	if !report.RTOMet {
+		t.Error("RTO should be met with generous target")
+	}
+	if !report.RPOMet {
+		t.Error("RPO should be met with generous target")
+	}
+	if report.RTOTarget != 100.0 {
+		t.Errorf("expected RTO target 100, got %f", report.RTOTarget)
+	}
+}
+
+func TestTargetsSetAndExceeded(t *testing.T) {
+	injector := NewFaultInjector(42)
+	runner := NewPipelineRunner(injector)
+	runner.SetTargets(0.0000001, 0.0000001)
+
+	report, err := runner.RunAllScenarios("test-target")
+	if err != nil {
+		t.Fatalf("RunAllScenarios failed: %v", err)
+	}
+
+	if report.RTOMet {
+		t.Error("RTO should not be met with tiny target")
+	}
+	if report.RPOMet {
+		t.Error("RPO should not be met with tiny target")
+	}
+}
+
+func TestDisasterDrillRunner(t *testing.T) {
+	injector := NewFaultInjector(42)
+	runner := NewPipelineRunner(injector)
+	drillRunner := NewDisasterDrillRunner(runner)
+
+	report, err := drillRunner.ExecuteDrill("test-drill", FaultKillAgent, "test-target")
+	if err != nil {
+		t.Fatalf("ExecuteDrill failed: %v", err)
+	}
+
+	if report.DrillName != "test-drill" {
+		t.Errorf("expected drill name 'test-drill', got %s", report.DrillName)
+	}
+	if !report.FaultInjected {
+		t.Error("fault should be injected")
+	}
+	if !report.DamageDetected {
+		t.Error("damage should be detected")
+	}
+	if !report.RecoveryAttempted {
+		t.Error("recovery should be attempted")
+	}
+}
+
+func TestDisasterDrillFullDrill(t *testing.T) {
+	injector := NewFaultInjector(42)
+	runner := NewPipelineRunner(injector)
+	drillRunner := NewDisasterDrillRunner(runner)
+
+	reports, err := drillRunner.ExecuteFullDrill("test-target")
+	if err != nil {
+		t.Fatalf("ExecuteFullDrill failed: %v", err)
+	}
+
+	if len(reports) != 5 {
+		t.Errorf("expected 5 drill reports, got %d", len(reports))
+	}
+
+	for _, r := range reports {
+		if r.RTOSeconds < 0 {
+			t.Errorf("drill %s: RTO should be non-negative", r.DrillName)
+		}
+	}
+}
+
+func TestDisasterDrillWithTargets(t *testing.T) {
+	injector := NewFaultInjector(42)
+	runner := NewPipelineRunner(injector)
+	runner.SetTargets(100.0, 100.0)
+	drillRunner := NewDisasterDrillRunner(runner)
+
+	report, err := drillRunner.ExecuteDrill("target-drill", FaultKillAgent, "test-target")
+	if err != nil {
+		t.Fatalf("ExecuteDrill failed: %v", err)
+	}
+
+	if !report.RTOMet {
+		t.Error("RTO should be met with generous target")
+	}
+	if !report.RPOMet {
+		t.Error("RPO should be met with generous target")
+	}
+	if !report.OverallPassed {
+		t.Error("drill should pass overall with generous targets")
+	}
+}

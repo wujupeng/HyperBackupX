@@ -36,6 +36,11 @@ type ChaosScenarioResult struct {
 	RecoveryResult  RecoveryResult `json:"recovery_result"`
 	Passed          bool           `json:"passed"`
 	Detail          string         `json:"detail"`
+	RTOSeconds      float64        `json:"rto_seconds"`
+	RPOSeconds      float64        `json:"rpo_seconds"`
+	TFault          time.Time      `json:"t_fault"`
+	TRecovered      time.Time      `json:"t_recovered"`
+	TLastData       time.Time      `json:"t_last_data"`
 }
 
 type ChaosReport struct {
@@ -45,12 +50,20 @@ type ChaosReport struct {
 	Results         []ChaosScenarioResult `json:"results"`
 	LeakDetected    bool                 `json:"leak_detected"`
 	GeneratedAt     time.Time            `json:"generated_at"`
+	RTOSeconds      float64              `json:"rto_seconds"`
+	RPOSeconds      float64              `json:"rpo_seconds"`
+	RTOTarget       float64              `json:"rto_target"`
+	RPOTarget       float64              `json:"rpo_target"`
+	RTOMet          bool                 `json:"rto_met"`
+	RPOMet          bool                 `json:"rpo_met"`
 }
 
 type ChaosPipelineRunner struct {
-	mu       sync.Mutex
-	injector *ChaosFaultInjector
-	results  []ChaosScenarioResult
+	mu        sync.Mutex
+	injector  *ChaosFaultInjector
+	results   []ChaosScenarioResult
+	rtoTarget float64
+	rpoTarget float64
 }
 
 func NewPipelineRunner(injector *ChaosFaultInjector) *ChaosPipelineRunner {
@@ -67,15 +80,23 @@ func (r *ChaosPipelineRunner) ExecuteScenario(ft FaultType, target string) (*Cha
 
 	result.BaselineCreated = r.createBaseline(target)
 
+	tLastData := time.Now()
+	result.TLastData = tLastData
+
 	fault, err := r.injector.Inject(ft, target)
 	if err != nil {
 		return nil, fmt.Errorf("inject fault: %w", err)
 	}
 	result.FaultInjected = fault != nil
+	result.TFault = time.Now()
 
 	result.DamageReport = r.detectDamage(ft, target)
 
 	result.RecoveryResult = r.attemptRecovery(ft, target, result.DamageReport)
+	result.TRecovered = time.Now()
+
+	result.RTOSeconds = result.TRecovered.Sub(result.TFault).Seconds()
+	result.RPOSeconds = result.TFault.Sub(result.TLastData).Seconds()
 
 	result.Passed = r.judge(result)
 	result.Detail = r.describe(result)
@@ -174,6 +195,9 @@ func (r *ChaosPipelineRunner) RunAllScenarios(target string) (*ChaosReport, erro
 		GeneratedAt: time.Now(),
 	}
 
+	var maxRTO float64
+	var maxRPO float64
+
 	for _, ft := range AllFaultTypes() {
 		result, err := r.ExecuteScenario(ft, target)
 		if err != nil {
@@ -189,10 +213,30 @@ func (r *ChaosPipelineRunner) RunAllScenarios(target string) (*ChaosReport, erro
 				report.LeakDetected = true
 			}
 		}
+		if result.RTOSeconds > maxRTO {
+			maxRTO = result.RTOSeconds
+		}
+		if result.RPOSeconds > maxRPO {
+			maxRPO = result.RPOSeconds
+		}
 		report.Results = append(report.Results, *result)
 	}
 
+	report.RTOSeconds = maxRTO
+	report.RPOSeconds = maxRPO
+	report.RTOTarget = r.rtoTarget
+	report.RPOTarget = r.rpoTarget
+	report.RTOMet = r.rtoTarget == 0 || maxRTO <= r.rtoTarget
+	report.RPOMet = r.rpoTarget == 0 || maxRPO <= r.rpoTarget
+
 	return report, nil
+}
+
+func (r *ChaosPipelineRunner) SetTargets(rtoTarget, rpoTarget float64) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.rtoTarget = rtoTarget
+	r.rpoTarget = rpoTarget
 }
 
 func (r *ChaosPipelineRunner) Results() []ChaosScenarioResult {
@@ -219,4 +263,93 @@ func (r *ChaosPipelineRunner) CheckLeak(result *ChaosScenarioResult) bool {
 		return true
 	}
 	return false
+}
+
+type DisasterDrillReport struct {
+	DrillName        string               `json:"drill_name"`
+	FaultType        FaultType            `json:"fault_type"`
+	Target           string               `json:"target"`
+	FaultInjected    bool                 `json:"fault_injected"`
+	DamageDetected   bool                 `json:"damage_detected"`
+	RecoveryAttempted bool                `json:"recovery_attempted"`
+	DataIntegrityOK  bool                 `json:"data_integrity_ok"`
+	RTOSeconds       float64              `json:"rto_seconds"`
+	RPOSeconds       float64              `json:"rpo_seconds"`
+	RTOTarget        float64              `json:"rto_target"`
+	RPOTarget        float64              `json:"rpo_target"`
+	RTOMet           bool                 `json:"rto_met"`
+	RPOMet           bool                 `json:"rpo_met"`
+	OverallPassed    bool                 `json:"overall_passed"`
+	Detail           string               `json:"detail"`
+	StartedAt        time.Time            `json:"started_at"`
+	CompletedAt      time.Time            `json:"completed_at"`
+}
+
+type DisasterDrillRunner struct {
+	runner *ChaosPipelineRunner
+}
+
+func NewDisasterDrillRunner(runner *ChaosPipelineRunner) *DisasterDrillRunner {
+	return &DisasterDrillRunner{runner: runner}
+}
+
+func (d *DisasterDrillRunner) ExecuteDrill(drillName string, ft FaultType, target string) (*DisasterDrillReport, error) {
+	startedAt := time.Now()
+
+	result, err := d.runner.ExecuteScenario(ft, target)
+	if err != nil {
+		return nil, fmt.Errorf("drill %s: %w", drillName, err)
+	}
+
+	completedAt := time.Now()
+
+	dataIntegrityOK := result.DamageReport.Detected && result.RecoveryResult.Rejected
+
+	rtoMet := d.runner.rtoTarget == 0 || result.RTOSeconds <= d.runner.rtoTarget
+	rpoMet := d.runner.rpoTarget == 0 || result.RPOSeconds <= d.runner.rpoTarget
+
+	overallPassed := result.Passed && dataIntegrityOK && rtoMet && rpoMet
+
+	detail := fmt.Sprintf(
+		"drill %s: fault=%s, RTO=%.3fs (target=%.1f, met=%v), RPO=%.3fs (target=%.1f, met=%v)",
+		drillName, ft, result.RTOSeconds, d.runner.rtoTarget, rtoMet,
+		result.RPOSeconds, d.runner.rpoTarget, rpoMet,
+	)
+
+	report := &DisasterDrillReport{
+		DrillName:         drillName,
+		FaultType:         ft,
+		Target:            target,
+		FaultInjected:     result.FaultInjected,
+		DamageDetected:    result.DamageReport.Detected,
+		RecoveryAttempted: result.RecoveryResult.Attempted,
+		DataIntegrityOK:   dataIntegrityOK,
+		RTOSeconds:        result.RTOSeconds,
+		RPOSeconds:        result.RPOSeconds,
+		RTOTarget:         d.runner.rtoTarget,
+		RPOTarget:         d.runner.rpoTarget,
+		RTOMet:            rtoMet,
+		RPOMet:            rpoMet,
+		OverallPassed:     overallPassed,
+		Detail:            detail,
+		StartedAt:         startedAt,
+		CompletedAt:       completedAt,
+	}
+
+	return report, nil
+}
+
+func (d *DisasterDrillRunner) ExecuteFullDrill(target string) ([]DisasterDrillReport, error) {
+	var reports []DisasterDrillReport
+
+	for i, ft := range AllFaultTypes() {
+		drillName := fmt.Sprintf("drill-%d-%s", i+1, ft)
+		report, err := d.ExecuteDrill(drillName, ft, target)
+		if err != nil {
+			return nil, err
+		}
+		reports = append(reports, *report)
+	}
+
+	return reports, nil
 }
