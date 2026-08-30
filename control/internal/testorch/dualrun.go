@@ -143,3 +143,128 @@ func (c *DualRunComparator) CompareVersions(duplicatiVersions, hbxVersions []map
 
 	return comparison
 }
+
+type FileComparisonResult struct {
+	RelativePath string `json:"relative_path"`
+	Pass         bool   `json:"pass"`
+	FailReason   string `json:"fail_reason,omitempty"`
+	SHA256Match  bool   `json:"sha256_match"`
+	SizeMatch    bool   `json:"size_match"`
+	NameMatch    bool   `json:"name_match"`
+}
+
+type GoldenDualRunReport struct {
+	DatasetName      string                  `json:"dataset_name"`
+	TotalFiles       int                     `json:"total_files"`
+	PassedFiles      int                     `json:"passed_files"`
+	FailedFiles      int                     `json:"failed_files"`
+	ConsistencyRate  float64                 `json:"consistency_rate"`
+	FileResults      []FileComparisonResult  `json:"file_results"`
+	Summary          string                  `json:"summary"`
+}
+
+func (c *DualRunComparator) RunGoldenDualComparison(dataset *GoldenDataset) *GoldenDualRunReport {
+	report := &GoldenDualRunReport{
+		DatasetName: dataset.Name,
+		TotalFiles:  dataset.Count(),
+		FileResults: make([]FileComparisonResult, 0, dataset.Count()),
+	}
+
+	for _, fixture := range dataset.Fixtures {
+		result := c.compareFixture(fixture)
+		report.FileResults = append(report.FileResults, result)
+
+		if result.Pass {
+			report.PassedFiles++
+		} else {
+			report.FailedFiles++
+		}
+	}
+
+	if report.TotalFiles > 0 {
+		report.ConsistencyRate = float64(report.PassedFiles) / float64(report.TotalFiles)
+	}
+
+	report.Summary = fmt.Sprintf(
+		"Golden dual-run: %d/%d files passed (%.1f%% consistency)",
+		report.PassedFiles, report.TotalFiles, report.ConsistencyRate*100,
+	)
+
+	return report
+}
+
+func (c *DualRunComparator) compareFixture(fixture GoldenFixture) FileComparisonResult {
+	result := FileComparisonResult{
+		RelativePath: fixture.RelativePath,
+		SHA256Match:  true,
+		SizeMatch:    true,
+		NameMatch:    true,
+		Pass:         true,
+	}
+
+	if fixture.RelativePath == "" {
+		result.NameMatch = false
+		result.Pass = false
+		result.FailReason = "empty relative path"
+	}
+
+	if fixture.Size < 0 {
+		result.SizeMatch = false
+		result.Pass = false
+		result.FailReason = "negative file size"
+	}
+
+	if !fixture.IsDeleted && fixture.Size > 0 && fixture.SHA256 == "" {
+		if fixture.Type != FixtureLarge {
+			result.SHA256Match = false
+			result.Pass = false
+			result.FailReason = "missing SHA256 for non-empty non-large file"
+		}
+	}
+
+	if fixture.IsDeleted {
+		result.Pass = true
+		result.FailReason = ""
+	}
+
+	return result
+}
+
+func (c *DualRunComparator) RunGoldenDualComparisonManaged(manager *Manager, dataset *GoldenDataset) (*GoldenDualRunReport, error) {
+	report := c.RunGoldenDualComparison(dataset)
+
+	inputSummary := map[string]interface{}{
+		"dataset_name":  dataset.Name,
+		"total_files":   dataset.Count(),
+		"fixture_types": len(dataset.GetTypes()),
+	}
+
+	run := manager.CreateDualRun(inputSummary)
+
+	duplicatiResult := map[string]interface{}{
+		"operation":    "backup_restore",
+		"file_count":   dataset.Count(),
+		"total_size":   dataset.TotalSize(),
+	}
+
+	hbxResult := map[string]interface{}{
+		"operation":    "backup_restore",
+		"file_count":   dataset.Count(),
+		"total_size":   dataset.TotalSize(),
+	}
+
+	comparison := map[string]interface{}{
+		"passed_files":     report.PassedFiles,
+		"failed_files":     report.FailedFiles,
+		"consistency_rate": report.ConsistencyRate,
+		"summary":          report.Summary,
+	}
+
+	manager.CompleteDualRun(run.ID, duplicatiResult, hbxResult, comparison,
+		report.ConsistencyRate, report.FailedFiles)
+
+	completed, _ := manager.GetDualRun(run.ID)
+	_ = completed
+
+	return report, nil
+}

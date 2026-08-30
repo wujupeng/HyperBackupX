@@ -10,9 +10,14 @@ use hbx_core::pipeline::{
 use sha2::{Digest, Sha256};
 
 mod consistency;
+mod multilayer;
 
 pub use consistency::{
     ConsistencyChecker, ConsistencyReport, RepairResult,
+};
+pub use multilayer::{
+    FileMetadata, FileVerificationResult, LayerStatus,
+    MultiLayerReport, MultiLayerVerifier, VerificationLayer,
 };
 
 pub struct IntegrityVerifier {
@@ -189,7 +194,7 @@ impl IntegrityVerifier {
                 chunk_index_hash: manifest.hashes.chunk_index_hash,
                 repo_hash: [0u8; 32],
             },
-            chunk_locations: Default::default(),
+            chunk_locations: manifest.chunk_locations.clone(),
         };
         let bytes = serde_json::to_vec(&temp_manifest)
             .map_err(|e| VerifyError::Failed(format!("serialize: {}", e)))?;

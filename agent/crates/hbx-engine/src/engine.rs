@@ -140,7 +140,7 @@ impl BackupEngine {
 
         let mut files: Vec<FileEntry> = Vec::new();
         let mut chunk_refs: Vec<ChunkReference> = Vec::new();
-        let mut chunk_locations: std::collections::HashMap<String, ChunkLocation> = std::collections::HashMap::new();
+        let mut chunk_locations: std::collections::BTreeMap<String, ChunkLocation> = std::collections::BTreeMap::new();
         let mut data_processed: u64 = 0;
         let mut data_stored: u64 = 0;
         let mut chunk_count: u64 = 0;
@@ -324,7 +324,7 @@ impl BackupEngine {
 
         let mut changed_files: Vec<FileEntry> = Vec::new();
         let mut changed_chunk_refs: Vec<ChunkReference> = Vec::new();
-        let mut chunk_locations: std::collections::HashMap<String, ChunkLocation> = std::collections::HashMap::new();
+        let mut chunk_locations: std::collections::BTreeMap<String, ChunkLocation> = std::collections::BTreeMap::new();
         let mut changed_paths: std::collections::HashSet<String> = std::collections::HashSet::new();
         let mut data_processed: u64 = 0;
         let mut data_stored: u64 = 0;
@@ -622,7 +622,7 @@ impl BackupEngine {
 
         let mut files: Vec<FileEntry> = Vec::new();
         let mut chunk_refs: Vec<ChunkReference> = Vec::new();
-        let mut chunk_locations: std::collections::HashMap<String, ChunkLocation> = std::collections::HashMap::new();
+        let mut chunk_locations: std::collections::BTreeMap<String, ChunkLocation> = std::collections::BTreeMap::new();
         let mut data_processed: u64 = 0;
         let mut data_stored: u64 = 0;
         let mut chunk_count: u64 = 0;
@@ -819,7 +819,7 @@ impl BackupEngine {
 
         let mut files: Vec<FileEntry> = Vec::new();
         let mut chunk_refs: Vec<ChunkReference> = Vec::new();
-        let mut chunk_locations: std::collections::HashMap<String, ChunkLocation> = std::collections::HashMap::new();
+        let mut chunk_locations: std::collections::BTreeMap<String, ChunkLocation> = std::collections::BTreeMap::new();
         let mut data_processed: u64 = 0;
         let mut data_stored: u64 = 0;
         let mut chunk_count: u64 = 0;
@@ -1010,7 +1010,7 @@ impl BackupEngine {
         backup_type: BackupType,
         files: Vec<FileEntry>,
         chunk_refs: Vec<ChunkReference>,
-        chunk_locations: std::collections::HashMap<String, hbx_core::domain::chunk::ChunkLocation>,
+        chunk_locations: std::collections::BTreeMap<String, hbx_core::domain::chunk::ChunkLocation>,
     ) -> Result<Manifest, EngineError> {
         let mut file_index_hasher = Sha256::new();
         for file in &files {

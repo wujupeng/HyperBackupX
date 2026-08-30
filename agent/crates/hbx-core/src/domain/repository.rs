@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use super::common::{FileAttributes, HashDigest, RepositoryId, VersionId};
 use super::chunk::{ChunkHash, ChunkLocation, ChunkReference};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use super::backup::BackupType;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -112,7 +112,7 @@ pub struct Manifest {
     pub chunk_refs: Vec<ChunkReference>,
     pub hashes: ManifestHashes,
     #[serde(default)]
-    pub chunk_locations: HashMap<String, ChunkLocation>,
+    pub chunk_locations: BTreeMap<String, ChunkLocation>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
