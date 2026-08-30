@@ -5,6 +5,7 @@
 pub mod service;
 pub mod recovery;
 pub mod memory_budget;
+pub mod resource_collector;
 
 pub use service::{ServiceConfig, ServiceError, ServiceState};
 pub use recovery::{
@@ -14,3 +15,4 @@ pub use recovery::{
 pub use memory_budget::{
     MemoryBudget, MemorySnapshot, MemoryBudgetEnforcer, BudgetAction, CacheBudget,
 };
+pub use resource_collector::{ResourceCollector, ResourceMetrics, LowMemoryMode, ResourceTargetReport};
